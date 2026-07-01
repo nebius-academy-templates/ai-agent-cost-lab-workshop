@@ -1,0 +1,37 @@
+{
+  "mcpAllowlist": [
+    "jira:jira_search_issues",
+    "jira:jira_get_issue",
+    "github:github_get_commit_status",
+    "github:github_create_commit",
+    "confluence:confluence_search",
+    "confluence:confluence_get_page",
+    "sentry:sentry_list_issues",
+    "sentry:sentry_get_event",
+    "testrail:testrail_get_cases",
+    "testrail:testrail_get_results"
+  ],
+  "terminalAllowlist": [
+    "npm",
+    "npx",
+    "git",
+    "docker",
+    "ls",
+    "cat",
+    "grep",
+    "find",
+    "rg",
+    "head",
+    "tail",
+    "wc",
+    "cd",
+    "pwd",
+    "echo",
+    "node",
+    "curl",
+    "mkdir",
+    "cp",
+    "mv",
+    "npx:tsx .cursor/hooks/compact-mcp.ts"
+  ]
+}

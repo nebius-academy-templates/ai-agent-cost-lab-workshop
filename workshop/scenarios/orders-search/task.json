@@ -1,0 +1,20 @@
+{
+  "id": "orders-search",
+  "title": "Orders search",
+  "ticket": "JIRA-0410",
+  "description": "The Orders page searches orders via GET /api/orders. It fires a request on every keystroke (no debounce) and a slow earlier response can overwrite a newer one. Fix it without changing the API contract or adding runtime dependencies. Full bug + Definition of Done live in JIRA-0410 (jira MCP).",
+  "terms": ["orders", "search", "debounce"],
+  "entryHints": [
+    "apps/angular-demo/src/app/orders/orders.controller.ts",
+    "apps/angular-demo/src/app/orders/orders.page.ts",
+    "apps/angular-demo/src/app/orders/orders.types.ts"
+  ],
+  "acceptance": [
+    "Debounce input so rapid keystrokes produce one request for the final query.",
+    "A stale (slower, older) response must never overwrite a newer one.",
+    "Paging is throttled / single-in-flight.",
+    "Surface idle, loading, results, empty, and error states.",
+    "Do not change the GET /api/orders contract.",
+    "No new runtime dependencies."
+  ]
+}

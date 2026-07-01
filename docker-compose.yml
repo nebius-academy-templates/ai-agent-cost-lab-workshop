@@ -1,0 +1,88 @@
+# Plata Burrito CRM workshop — local backends.
+# `docker compose up` brings up the REST mock backend + 5 mock MCP servers (Run 1 baseline).
+# The Angular app itself is NOT containerised: run `npm run start` separately.
+#
+# Ports: REST 8080 · jira 9001 · github 9002 · confluence 9003 · sentry 9004 · testrail 9005
+x-mcp: &mcp
+  build: ./servers/mcp
+  restart: unless-stopped
+
+x-mcp-health: &mcp-health
+  test: ["CMD", "node", "-e", "fetch('http://localhost:'+process.env.PORT+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  interval: 10s
+  timeout: 3s
+  retries: 5
+
+services:
+  rest-mock:
+    build: ./apps/angular-demo/mock-server
+    container_name: plata-rest-mock
+    ports:
+      - "8080:8080"
+    environment:
+      - REST_PORT=8080
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  jira:
+    <<: *mcp
+    container_name: plata-mcp-jira
+    environment: [MCP_SERVER=jira, PORT=9001]
+    ports: ["9001:9001"]
+    healthcheck: *mcp-health
+
+  github:
+    <<: *mcp
+    container_name: plata-mcp-github
+    environment: [MCP_SERVER=github, PORT=9002]
+    ports: ["9002:9002"]
+    # Mounted read-only so github status mirrors the real quality gate (for the active scenario).
+    volumes: ["./.workshop:/app/.workshop:ro"]
+    healthcheck: *mcp-health
+
+  confluence:
+    <<: *mcp
+    container_name: plata-mcp-confluence
+    environment: [MCP_SERVER=confluence, PORT=9003]
+    ports: ["9003:9003"]
+    healthcheck: *mcp-health
+
+  sentry:
+    <<: *mcp
+    container_name: plata-mcp-sentry
+    environment: [MCP_SERVER=sentry, PORT=9004]
+    ports: ["9004:9004"]
+    healthcheck: *mcp-health
+
+  testrail:
+    <<: *mcp
+    container_name: plata-mcp-testrail
+    environment: [MCP_SERVER=testrail, PORT=9005]
+    ports: ["9005:9005"]
+    # Mounted read-only so testrail results mirror the real quality gate (for the active scenario).
+    volumes: ["./.workshop:/app/.workshop:ro"]
+    healthcheck: *mcp-health
+
+  # Run 3 (Option A) compaction proxy. Ships as a passthrough болванка; participants edit
+  # servers/proxy/src/index.ts and `npm run proxy:rebuild`. Reaches upstreams by service name (IN_DOCKER=1).
+  proxy:
+    build: ./servers/proxy
+    container_name: plata-mcp-proxy
+    environment: [IN_DOCKER=1, PORT=9100]
+    ports: ["9100:9100"]
+    depends_on:
+      jira: { condition: service_healthy }
+      github: { condition: service_healthy }
+      confluence: { condition: service_healthy }
+      sentry: { condition: service_healthy }
+      testrail: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:9100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

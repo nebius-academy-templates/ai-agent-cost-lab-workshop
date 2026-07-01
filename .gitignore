@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+.angular/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Workshop local outputs (gate results, token snapshots)
+.workshop/
+
+# Local measurement records — what we send to Grafana, for cross-checking
+.measurements/
+
+# Local credentials / config
+.env
+.env.local
+
+# codex session logs in app dir
+apps/angular-demo/.codex/
+.codex-log/

@@ -1,0 +1,22 @@
+{
+  "id": "catalog-pagination",
+  "title": "Catalog data grid",
+  "ticket": "JIRA-0321",
+  "description": "The Plata Burrito catalog at /catalog is a product data grid over GET /api/products?page&pageSize&sort&category&q. It ignores the URL on load (deep-links/back-forward don't restore page+sort+category+q), doesn't reset to page 1 on filter change, re-fetches with no cache/stale-while-revalidate, lets a slower response overwrite a newer one, and reports all empty results the same way. Full bug + Definition of Done live in JIRA-0321 (jira MCP).",
+  "terms": ["catalog", "pagination", "grid"],
+  "entryHints": [
+    "apps/angular-demo/src/app/catalog/catalog.controller.ts",
+    "apps/angular-demo/src/app/catalog/catalog.page.ts",
+    "apps/angular-demo/src/app/catalog/catalog.types.ts"
+  ],
+  "acceptance": [
+    "page, sort, category, and q all live in the URL and are read on init (deep-linkable).",
+    "Changing a filter or sort resets to page 1 and updates the URL.",
+    "React to route changes (back/forward) by reloading the state.",
+    "Default page to 1 when absent/invalid; never send an undefined/NaN/<1 page.",
+    "A stale (slower, older) response never overwrites a newer one.",
+    "Cache results by query and serve repeats from cache; stale-while-revalidate (no loading flash).",
+    "Classify empty results: no-products / no-match / out-of-range.",
+    "Do not change the GET /api/products contract; no new runtime dependencies."
+  ]
+}

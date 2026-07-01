@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx \"$(git rev-parse --show-toplevel)/apps/angular-demo/.codex/hooks/post-tool-use.ts\"",
+            "timeout": 30,
+            "statusMessage": "Compacting MCP output"
+          }
+        ]
+      }
+    ]
+  }
+}

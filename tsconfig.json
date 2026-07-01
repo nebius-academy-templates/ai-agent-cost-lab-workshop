@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "comment": "Typechecks the workshop CLI/facilitator tooling only. The Angular app + scenario/checkpoint sources compile under apps/angular-demo/tsconfig.app.json and the reference tsconfig.",
+  "include": [
+    "workshop/cli/**/*.ts",
+    "workshop/facilitator/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/dist",
+    "apps",
+    "workshop/scenarios",
+    "workshop/checkpoints"
+  ]
+}

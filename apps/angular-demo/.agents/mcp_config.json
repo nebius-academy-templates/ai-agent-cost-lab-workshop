@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "jira": {
+      "type": "http",
+      "url": "http://localhost:9001/mcp",
+      "serverUrl": "http://localhost:9001/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "http://localhost:9002/mcp",
+      "serverUrl": "http://localhost:9002/mcp"
+    },
+    "confluence": {
+      "type": "http",
+      "url": "http://localhost:9003/mcp",
+      "serverUrl": "http://localhost:9003/mcp"
+    },
+    "sentry": {
+      "type": "http",
+      "url": "http://localhost:9004/mcp",
+      "serverUrl": "http://localhost:9004/mcp"
+    },
+    "testrail": {
+      "type": "http",
+      "url": "http://localhost:9005/mcp",
+      "serverUrl": "http://localhost:9005/mcp"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "token-efficient-agent-workshop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workshop: measure and reduce the cost of a real coding agent solving a frontend task.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "start": "npm start --workspace @workshop/angular-demo",
+    "build": "npm run build --workspace @workshop/angular-demo",
+    "proxy:setup": "tsx workshop/cli/proxy.ts setup",
+    "proxy:direct": "tsx workshop/cli/proxy.ts direct",
+    "proxy:solution": "tsx workshop/cli/proxy.ts solution",
+    "proxy:reset": "tsx workshop/cli/proxy.ts reset",
+    "proxy:rebuild": "docker compose up -d --build proxy",
+    "agents:solution": "cp workshop/reference/AGENTS.optimized.md apps/angular-demo/AGENTS.md && echo \"✅ Optimized AGENTS.md applied. Now: npm run workshop:run2\"",
+    "agents:reset": "git checkout apps/angular-demo/AGENTS.md && echo \"✅ AGENTS.md restored to bloated baseline\"",
+    "hooks:setup": "tsx workshop/cli/hooks.ts setup",
+    "hooks:solution": "tsx workshop/cli/hooks.ts solution",
+    "hooks:reset": "tsx workshop/cli/hooks.ts reset",
+    "workshop:doctor": "tsx workshop/facilitator/doctor.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm test --workspaces --if-present",
+    "variant": "tsx workshop/cli/variant.ts",
+    "tokens:measure": "tsx workshop/cli/measure.ts",
+    "tokens:compare": "tsx workshop/cli/compare.ts",
+    "e2e:hygiene": "tsx e2e/test-hygiene.ts",
+    "e2e:proxy": "tsx e2e/test-proxy.ts",
+    "e2e:hygiene-codex": "tsx e2e/test-hygiene-codex.ts",
+    "e2e:hygiene-cursor": "tsx e2e/test-hygiene-cursor.ts",
+    "e2e:hooks": "tsx e2e/test-hooks.ts",
+    "e2e:hooks-codex": "tsx e2e/test-hooks-codex.ts",
+    "e2e:hooks-cursor": "tsx e2e/test-hooks-cursor.ts",
+    "e2e:all": "npm run e2e:hygiene && npm run e2e:proxy && npm run e2e:hooks && npm run e2e:hooks-codex && npm run e2e:hooks-cursor",
+    "workshop:run1": "npx tsx e2e/workshop-runner.ts run1",
+    "workshop:run2": "npx tsx e2e/workshop-runner.ts run2",
+    "workshop:run3": "npx tsx e2e/workshop-runner.ts run3",
+    "workshop:verify-cursor": "tsx workshop/facilitator/verify-cursor.ts",
+    "setup:mcp": "bash workshop/cli/setup-mcp.sh",
+    "setup:mcp-cleanup": "bash workshop/cli/setup-mcp-cleanup.sh",
+    "setup:docker": "bash workshop/cli/setup-docker.sh",
+    "setup:docker-cleanup": "bash workshop/cli/setup-docker-cleanup.sh",
+    "setup:trust": "tsx workshop/cli/setup-trust.ts",
+    "setup": "tsx workshop/cli/setup.ts",
+    "cleanup": "npm run setup:mcp-cleanup && npm run setup:docker-cleanup && echo \"\n\u2705 Workshop cleanup complete.\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/node": "^20.19.0",
+    "eslint": "^9.39.4",
+    "tsx": "^4.19.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.62.0",
+    "zod": "^4.4.3"
+  }
+}

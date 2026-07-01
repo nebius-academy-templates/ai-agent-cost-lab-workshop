@@ -1,0 +1,280 @@
+/* Plata Burrito CRM — global styles. Brand tokens live in src/theme/plata.css. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ds-bg);
+  color: var(--ds-fg);
+  font-family: var(--plata-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--plata-orange-dark);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ── Shell: navbar ──────────────────────────────────────────────── */
+.pl-navbar {
+  display: flex;
+  align-items: center;
+  gap: var(--plata-space-6);
+  padding: var(--plata-space-3) var(--plata-space-6);
+  background: var(--ds-surface);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.pl-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--plata-space-3);
+  color: var(--ds-fg);
+  font-weight: 600;
+}
+.pl-brand:hover {
+  text-decoration: none;
+}
+
+.pl-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--plata-radius-sm);
+  background: var(--plata-gradient);
+  color: var(--plata-white);
+  font-weight: 800;
+}
+
+.pl-brand-text strong {
+  color: var(--plata-orange);
+}
+
+.pl-nav {
+  display: flex;
+  gap: var(--plata-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pl-nav a {
+  display: inline-block;
+  padding: var(--plata-space-1) var(--plata-space-1);
+  color: var(--ds-muted);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+.pl-nav a:hover {
+  color: var(--ds-fg);
+  text-decoration: none;
+}
+.pl-nav a.is-active {
+  color: var(--ds-fg);
+  border-bottom-color: var(--plata-orange);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.pl-main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--plata-space-8) var(--plata-space-6) 64px;
+}
+
+.pl-page-head {
+  margin-bottom: var(--plata-space-6);
+}
+.pl-page-head h1 {
+  margin: 0 0 var(--plata-space-2);
+  font-size: 26px;
+}
+.pl-lede {
+  margin: 0;
+  color: var(--ds-muted);
+}
+
+.pl-placeholder {
+  margin-top: var(--plata-space-6);
+  padding: var(--plata-space-8);
+  border: 1px dashed var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface);
+  color: var(--ds-muted);
+  text-align: center;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.pl-footer {
+  display: flex;
+  gap: var(--plata-space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--plata-space-4) var(--plata-space-6);
+  border-top: 1px solid var(--ds-border);
+  background: var(--ds-surface);
+  color: var(--ds-muted);
+  font-size: 13px;
+}
+.pl-footer-note {
+  color: var(--plata-gray-400);
+}
+
+.pl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--plata-space-3);
+  margin-bottom: var(--plata-space-4);
+}
+.pl-toolbar .pl-input {
+  flex: 1 1 240px;
+}
+.pl-toolbar .pl-select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* ── Base component kit (used by feature pages) ─────────────────── */
+.pl-card {
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--plata-shadow);
+}
+
+.pl-input,
+.pl-select {
+  width: 100%;
+  padding: var(--plata-space-2) var(--plata-space-3);
+  font: inherit;
+  color: var(--ds-fg);
+  background: var(--ds-surface);
+  border: 1px solid var(--plata-gray-300);
+  border-radius: var(--plata-radius-sm);
+}
+.pl-input:focus,
+.pl-select:focus {
+  outline: 2px solid color-mix(in srgb, var(--plata-orange) 35%, transparent);
+  border-color: var(--plata-orange);
+}
+
+.pl-btn {
+  padding: var(--plata-space-2) var(--plata-space-4);
+  font: inherit;
+  font-weight: 600;
+  color: var(--plata-white);
+  background: var(--plata-orange);
+  border: 1px solid transparent;
+  border-radius: var(--plata-radius-sm);
+  cursor: pointer;
+}
+.pl-btn:hover {
+  background: var(--plata-orange-dark);
+}
+.pl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pl-btn--ghost {
+  color: var(--ds-fg);
+  background: var(--ds-surface);
+  border-color: var(--plata-gray-300);
+}
+.pl-btn--ghost:hover {
+  background: var(--plata-gray-100);
+}
+
+.pl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pl-table th,
+.pl-table td {
+  padding: var(--plata-space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--ds-border);
+}
+.pl-table th {
+  color: var(--ds-muted);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.pl-pagination {
+  display: flex;
+  gap: var(--plata-space-2);
+  align-items: center;
+  margin-top: var(--plata-space-4);
+}
+
+.pl-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--plata-gray-100);
+  color: var(--ds-muted);
+}
+
+/* Edit form */
+.pl-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plata-space-4);
+  padding: var(--plata-space-6);
+}
+.pl-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plata-space-1);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ds-muted);
+}
+.pl-form .pl-input,
+.pl-form .pl-select {
+  font-weight: 400;
+  color: var(--ds-fg);
+}
+.pl-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: var(--plata-space-2) !important;
+}
+.pl-field-error {
+  color: var(--plata-danger);
+  font-weight: 500;
+}
+.pl-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--plata-space-3);
+}
+.pl-preview {
+  margin-top: var(--plata-space-4);
+  padding: var(--plata-space-4) var(--plata-space-6);
+}
+.pl-preview h3 {
+  margin-top: 0;
+  font-size: 14px;
+  color: var(--ds-muted);
+}
+
+/* State messages */
+.pl-state {
+  padding: var(--plata-space-4);
+  color: var(--ds-muted);
+}
+.pl-state--error {
+  color: var(--plata-danger);
+}

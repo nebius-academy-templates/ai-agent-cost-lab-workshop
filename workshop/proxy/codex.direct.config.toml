@@ -1,0 +1,27 @@
+# Codex direct MCP baseline.
+# Copy this to apps/angular-demo/.codex/config.toml when measuring direct MCP without proxy.
+
+[mcp_servers.jira]
+url = "http://localhost:9001/mcp"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.github]
+url = "http://localhost:9002/mcp"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.confluence]
+url = "http://localhost:9003/mcp"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.sentry]
+url = "http://localhost:9004/mcp"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.testrail]
+url = "http://localhost:9005/mcp"
+startup_timeout_sec = 10
+tool_timeout_sec = 60

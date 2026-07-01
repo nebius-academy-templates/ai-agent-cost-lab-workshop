@@ -1,0 +1,20 @@
+{
+  "id": "editcard-validation",
+  "title": "Edit card — validation & XSS",
+  "ticket": "JIRA-0455",
+  "description": "The Edit product page saves via PUT /api/products/:id. It does not validate input client-side (the backend 400 is swallowed, never shown per-field) and renders the description as raw HTML (stored XSS). Fix it without changing the API contract or adding runtime dependencies. Full bug + Definition of Done live in JIRA-0455 (jira MCP).",
+  "terms": ["edit", "validation", "xss"],
+  "entryHints": [
+    "apps/angular-demo/src/app/edit-card/editcard.controller.ts",
+    "apps/angular-demo/src/app/edit-card/edit-card.page.ts",
+    "apps/angular-demo/src/app/edit-card/editcard.types.ts"
+  ],
+  "acceptance": [
+    "Validate inputs client-side and show inline messages; do not submit an invalid form.",
+    "Surface the backend 400 validation errors next to the offending fields.",
+    "Escape/sanitize the description on render — no HTML injection / XSS.",
+    "Surface saving, saved, and error states.",
+    "Do not change the PUT /api/products/:id contract.",
+    "No new runtime dependencies."
+  ]
+}

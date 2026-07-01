@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterMCPExecution": [
+      {
+        "command": "npx tsx .cursor/hooks/compact-mcp.ts",
+        "timeout": 30
+      }
+    ]
+  }
+}

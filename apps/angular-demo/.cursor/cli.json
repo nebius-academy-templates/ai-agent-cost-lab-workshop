@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm)",
+      "Shell(npx)",
+      "Shell(git)",
+      "Shell(docker)",
+      "Shell(ls)",
+      "Shell(cat)",
+      "Shell(grep)",
+      "Shell(find)",
+      "Shell(rg)",
+      "Shell(head)",
+      "Shell(tail)",
+      "Shell(wc)",
+      "Shell(cd)",
+      "Shell(pwd)",
+      "Shell(echo)",
+      "Shell(node)",
+      "Shell(curl)",
+      "Shell(mkdir)",
+      "Shell(cp)",
+      "Shell(mv)",
+      "Mcp(jira:jira_search_issues)",
+      "Mcp(jira:jira_get_issue)",
+      "Mcp(github:github_get_commit_status)",
+      "Mcp(github:github_create_commit)",
+      "Mcp(confluence:confluence_search)",
+      "Mcp(confluence:confluence_get_page)",
+      "Mcp(sentry:sentry_list_issues)",
+      "Mcp(sentry:sentry_get_event)",
+      "Mcp(testrail:testrail_get_cases)",
+      "Mcp(testrail:testrail_get_results)"
+    ],
+    "deny": []
+  }
+}

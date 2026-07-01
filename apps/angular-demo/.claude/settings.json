@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(git:*)",
+      "Bash(docker:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(cd:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "mcp__jira__jira_search_issues",
+      "mcp__jira__jira_get_issue",
+      "mcp__github__github_get_commit_status",
+      "mcp__github__github_create_commit",
+      "mcp__confluence__confluence_search",
+      "mcp__confluence__confluence_get_page",
+      "mcp__sentry__sentry_list_issues",
+      "mcp__sentry__sentry_get_event",
+      "mcp__testrail__testrail_get_cases",
+      "mcp__testrail__testrail_get_results"
+    ]
+  }
+}

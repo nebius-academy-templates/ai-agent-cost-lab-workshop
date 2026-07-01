@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jira": { "type": "http", "url": "http://localhost:9100/mcp?target=jira" },
+    "github": { "type": "http", "url": "http://localhost:9100/mcp?target=github" },
+    "confluence": { "type": "http", "url": "http://localhost:9100/mcp?target=confluence" },
+    "sentry": { "type": "http", "url": "http://localhost:9100/mcp?target=sentry" },
+    "testrail": { "type": "http", "url": "http://localhost:9100/mcp?target=testrail" }
+  }
+}

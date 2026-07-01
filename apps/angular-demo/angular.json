@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "projects": {
+    "angular-demo": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/angular-demo",
+            "browser": "src/main.ts",
+            "index": "src/index.html",
+            "tsConfig": "tsconfig.app.json",
+            "polyfills": ["zone.js"],
+            "styles": ["src/theme/plata.css", "src/styles.css"],
+            "assets": [{ "glob": "**/*", "input": "src/assets" }]
+          },
+          "configurations": {
+            "production": { "optimization": true, "outputHashing": "all" },
+            "development": { "optimization": false, "sourceMap": true, "extractLicenses": false }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": { "proxyConfig": "proxy.conf.json" },
+          "configurations": {
+            "development": { "buildTarget": "angular-demo:build:development" },
+            "production": { "buildTarget": "angular-demo:build:production" }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
+}

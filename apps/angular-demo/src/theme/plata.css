@@ -1,0 +1,59 @@
+/**
+ * Plata brand tokens — derived from design.platacard.mx brand guidelines.
+ * Brand color #FF5000 (Pantone Orange 021C); Rothorn brand font.
+ * Drop Rothorn.woff2 into src/assets/fonts/ (Drive: 04_Brand-family); until then the
+ * stack falls through to Manrope / system sans with no build break.
+ */
+:root {
+  /* Brand palette */
+  --plata-orange: #ff5000;
+  --plata-orange-dark: #ff4000;
+  --plata-orange-light: #ff711f;
+  --plata-gradient: linear-gradient(135deg, var(--plata-orange-dark), var(--plata-orange-light));
+  --plata-black: #0a0a0a;
+  --plata-white: #ffffff;
+
+  /* Neutral ramp for UI surfaces */
+  --plata-gray-50: #f7f7f8;
+  --plata-gray-100: #eef0f2;
+  --plata-gray-200: #e2e5e9;
+  --plata-gray-300: #d1d5db;
+  --plata-gray-400: #9aa0a8;
+  --plata-gray-600: #5b6168;
+  --plata-gray-800: #23262b;
+
+  /* Status colors */
+  --plata-success: #1f9d55;
+  --plata-warning: #d9822b;
+  --plata-danger: #d64545;
+
+  /* Typography */
+  --plata-font: 'Rothorn', 'Manrope', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Shape + spacing scale */
+  --plata-radius: 10px;
+  --plata-radius-sm: 6px;
+  --plata-space-1: 4px;
+  --plata-space-2: 8px;
+  --plata-space-3: 12px;
+  --plata-space-4: 16px;
+  --plata-space-6: 24px;
+  --plata-space-8: 32px;
+  --plata-shadow: 0 1px 2px rgba(10, 10, 10, 0.06), 0 4px 12px rgba(10, 10, 10, 0.05);
+
+  /* App-level semantic tokens (consumed across components) */
+  --ds-bg: var(--plata-gray-50);
+  --ds-surface: var(--plata-white);
+  --ds-fg: var(--plata-black);
+  --ds-muted: var(--plata-gray-600);
+  --ds-border: var(--plata-gray-200);
+  --ds-accent: var(--plata-orange);
+  --ds-radius: var(--plata-radius);
+}
+
+@font-face {
+  font-family: 'Rothorn';
+  src: url('/assets/fonts/Rothorn.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
