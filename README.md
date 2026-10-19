@@ -1,6 +1,6 @@
 # AI Agent Cost Lab — Optimization Playbook
 
-Use this playbook to revisit the methods demonstrated in the masterclass and try them in the repository.
+Use this playbook to revisit the methods demonstrated in the session and try them in the repository.
 
 The repository contains two resources:
 
