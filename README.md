@@ -1,33 +1,84 @@
-# AI Agent Cost Lab — Workshop
+# AI Agent Cost Lab — Optimization Playbook
 
-To get a head start, please clone the workshop repository before the session.
+Use this playbook to revisit the methods demonstrated in the masterclass and try them in the repository.
 
-In this practice, you’ll measure and optimize how many tokens a coding agent spends while fixing the same kind of feature bug.
+The repository contains two resources:
 
-You’ll work with a runnable **Angular** product, **Plata Burrito CRM**, backed by a dockerized API and five mock MCP servers. The agent receives the task through MCP, fixes a deliberately buggy feature, and then the workshop runner measures token usage from that run’s own session transcript.
+- **Reference guides:** optimization methods, implementation details, and measured results.
+- **A runnable sandbox:** the feature-fixing task you saw in the masterclass, with commands for measuring your own results.
 
-The goal is simple:
+Start with the reference guides. When you're ready to experiment, follow the sandbox instructions below.
 
-Fix the feature correctly, then reduce the token cost without breaking the solution.
+## Find the reference material
 
-A token reduction that breaks the feature does not count. Correctness is decided by the quality gate: tests, typecheck, and lint. The `workshop:run*` commands run this gate automatically after the agent finishes.
+The reference files are in `docs/`.
 
-## Prerequisites
+| File | What you'll find |
+| --- | --- |
+| [Optimization catalog](docs/optimization-catalog.md) | Start here: an overview of the optimization methods, their two layers, and how they map to the sandbox runs |
+| [Hygiene methods](docs/hygiene-methods.md) | Ten levers covering model choice, reasoning effort, context scope, file hints, output, prompts, caching, configuration, subagents, and skills |
+| [Tool-response methods](docs/tool-layer-matrix.md) | Seven methods for reducing tool responses, with agent support, tradeoffs, and measured or estimated effects |
+| [MCP proxy implementation guide](docs/mcp-proxy-methods.md) | How to implement the tool-response methods in the proxy, including commands, file locations, and reference code |
+| [Agent hooks implementation guide](docs/hooks-methods.md) | How to implement the methods with agent hooks, including configuration, output formats, and agent-specific limitations |
+| [October 2026 measurements](docs/measurements-2026-10.md) | The measured results, test setup, token and cost breakdowns, and limitations |
 
-You need:
+The guides distinguish **measured results**, **calculations**, and **estimates**. Use those labels when comparing methods. A reduction in response size, total tokens, and cost describes three different outcomes.
 
-* Node `>= 20.11`
-* npm
-* Docker
-* One installed and authenticated coding agent:
+### Choose an optimization layer
 
-  * `claude`
-  * `codex`
-  * `cursor-agent`
+| Layer | What you change | Where to start |
+| --- | --- | --- |
+| Hygiene | Agent instructions, model, reasoning effort, prompt, and configuration | `docs/hygiene-methods.md` |
+| Tool responses | The information returned by MCP tools before it enters the model's context | `docs/tool-layer-matrix.md` |
 
-## Step 0: Setup
+For tool responses, the updated catalog covers:
 
-Install dependencies and start the workshop environment:
+- Field filtering
+- Truncation
+- Structured summary
+- Pagination
+- Deduplication and caching
+- Diff-based responses
+- Aggregation and batching
+
+Use the tool-response matrix to choose a method, then open the proxy or hooks guide for implementation details.
+
+### Choose where to implement tool-response methods
+
+| Approach | When to use it |
+| --- | --- |
+| Built-in limits | To try response truncation through agent configuration |
+| Agent hooks | To transform individual tool calls or results in an agent that supports the required hook |
+| MCP proxy | To share an implementation across agents, keep state in memory, aggregate calls, or work around hook limitations |
+
+In the supplied October 2026 measurements, MCP hooks never fired for Codex with Sol 6.1 because its MCP calls ran inside `exec`. Use the proxy for that configuration. The hooks guide also documents Cursor's configuration at the repository root.
+
+## Try the sandbox yourself
+
+The sandbox lets you repeat the experiment demonstrated in the masterclass.
+
+You'll work with Plata Burrito CRM, a runnable Angular product backed by a Dockerized API and five mock MCP servers. The coding agent retrieves a ticket through MCP, follows its linked resources, and fixes a deliberately buggy feature.
+
+The runner measures usage from the agent's session and checks the solution.
+
+**Your goal:** reduce token usage while keeping the feature correct.
+
+A reduction counts only when the solution passes the quality gate: tests, typecheck, and lint. The `workshop:run*` commands run this gate automatically.
+
+The repository retains its `workshop:*` command names.
+
+### Prerequisites
+
+Before starting, clone the repository and make sure you have:
+
+- Node.js ≥ 20.11
+- npm
+- Docker
+- One installed and authenticated coding agent: `claude`, `codex`, or `cursor-agent`
+
+### Set up the environment
+
+Run these commands from the repository root:
 
 ```bash
 npm install
@@ -35,9 +86,9 @@ npm run setup
 npm run workshop:doctor
 ```
 
-The setup command starts Docker and MCP services, then auto-detects your available coding agent.
+Setup starts Docker and MCP services, then detects your available coding agent.
 
-You can also choose the agent explicitly:
+To choose an agent explicitly, run one of these commands:
 
 ```bash
 npm run setup -- claude
@@ -45,91 +96,27 @@ npm run setup -- codex
 npm run setup -- cursor
 ```
 
-The selected agent is saved to:
+The selected agent is saved to `.workshop/active-agent`. Subsequent `proxy:*`, `hooks:*`, and `workshop:run*` commands use it automatically.
 
-```bash
-.workshop/active-agent
-```
-
-After that, every later command uses the same agent automatically:
-
-* `proxy:*`
-* `hooks:*`
-* `workshop:run*`
-
-No per-command flags are needed.
-
-You can switch agents at any time:
+To switch agents:
 
 ```bash
 npm run setup -- <agent>
-npm run variant -- <n> <agent>
 ```
 
-Supported agents:
+Supported values: `claude`, `codex`, and `cursor`.
 
-```bash
-claude | codex | cursor
-```
+### Choose a bug variant
 
-------------⚠️ Spoiler alert! Continue only during the workshop or while working independently after it. -----------
+Use the same variant across your comparison runs.
 
-## Practice goal
+| Variant | Page | Ticket | Feature |
+| --- | --- | --- | --- |
+| 1 | `/catalog` | `JIRA-0321` | Data grid: URL sync, cache, SWR, cancellation |
+| 2 | `/orders` | `JIRA-0410` | Data grid: URL sync, debounce, cache, SWR |
+| 3 | `/edit/:id` | `JIRA-0455` | Forms: validation, 400-mapping, XSS, dirty state |
 
-You will run the same feature-fixing task three times:
-
-1. **Run 1:** establish the baseline token cost
-2. **Run 2:** optimize `AGENTS.md` and measure again
-3. **Run 3:** optimize the tool layer with an MCP proxy or agent hooks and measure again
-
-Runs 2 and 3 are both compared against the same Run 1 baseline.
-
-The second and third optimizations are measured independently. Do not switch branches between runs.
-
-## Three bug variants
-
-Pick one bug vector to work on:
-
-| Variant | Page        | Ticket      | Type                                             |
-| ------- | ----------- | ----------- | ------------------------------------------------ |
-| 1       | `/catalog`  | `JIRA-0321` | Data grid: URL sync, cache, SWR, cancellation    |
-| 2       | `/orders`   | `JIRA-0410` | Data grid: URL sync, debounce, cache, SWR        |
-| 3       | `/edit/:id` | `JIRA-0455` | Forms: validation, 400-mapping, XSS, dirty state |
-
-Set the variant:
-
-```bash
-npm run variant -- 1
-npm run variant -- 2
-npm run variant -- 3
-```
-
-This writes `TASK.md` and sets the scenario for the agent.
-
-## How measured runs work
-
-A measured run is a bracket:
-
-1. `workshop:run*` resets the token baseline.
-2. The command prints the exact agent launch command.
-3. You start the agent in a second terminal.
-4. The agent works on the task.
-5. You close the agent.
-6. Back in the first terminal, press Enter.
-7. The quality gate runs.
-8. Token usage is measured.
-
-Start the agent only after the measured run has started waiting.
-
-The agent must warm up, read config, use MCP, and fix the task inside the measured window.
-
-## Workshop flow
-
-You will use two terminals.
-
-### Run 1: Baseline measurement
-
-First, choose your bug variant:
+Run the command for your chosen variant:
 
 ```bash
 npm run variant -- 1
@@ -139,149 +126,132 @@ npm run variant -- 2
 npm run variant -- 3
 ```
 
-Then start the measured baseline run.
+This writes `TASK.md` and sets the agent's scenario.
 
-**Terminal A — prep and measure:**
+You can also select a variant and agent together:
+
+```bash
+npm run variant -- 2 claude
+```
+
+## Measure a baseline and compare optimizations
+
+The sandbox has three measured runs:
+
+| Run | Configuration | Comparison |
+| --- | --- | --- |
+| 1 | Original instructions and direct MCP connections | Establish the baseline |
+| 2 | Hygiene optimizations | Compare with Run 1 |
+| 3 | Tool-response optimizations | Compare with Run 1 |
+
+Runs 2 and 3 test the layers independently. For the reference comparison, Run 3 uses the original `AGENTS.md`.
+
+Stay on the same branch between runs. The runner resets the app code after each measured run.
+
+### How to measure each run
+
+Use two terminals:
+
+- **Terminal A:** Start the runner, then collect the result.
+- **Terminal B:** Start the coding agent.
+
+For each run:
+
+1. In Terminal A, start the relevant `workshop:run*` command.
+2. Wait until the runner prints the agent launch command and waits for you.
+3. In Terminal B, run the printed command from `apps/angular-demo`.
+4. Let the agent complete the task, then close it.
+5. Return to Terminal A and press Enter.
+6. Review the quality-gate result and usage measurement.
+
+Start a fresh agent session inside each measured window. Agent startup, configuration reading, MCP use, and the feature fix all belong inside that window.
+
+Use the exact launch command printed by the runner. For Claude Code, this includes the session ID used to identify the correct log.
+
+### Run 1: Establish the baseline
+
+Start with the original instructions and direct MCP connections. To restore that configuration:
+
+```bash
+npm run agents:reset
+npm run hooks:reset
+npm run proxy:reset
+npm run proxy:rebuild
+```
+
+Then start the baseline measurement in Terminal A:
 
 ```bash
 npm run workshop:run1
 ```
 
-The runner prints the exact launch command for your selected agent.
+Complete the two-terminal sequence above. The runner checks the solution and stores Run 1 as the baseline.
 
-**Terminal B — agent:**
+For Cursor, use the dashboard link and printed `runStart` time to find the matching run's token count.
 
-Run the command printed by `workshop:run1`.
+### Run 2: Try hygiene optimizations
 
-Examples:
+Open `docs/hygiene-methods.md` and choose the levers you want to test.
 
-```bash
-cd apps/angular-demo
-claude --session-id <id>
-```
+The agent instruction file is:
 
-```bash
-cd apps/angular-demo
-codex
-```
-
-```bash
-cd apps/angular-demo
-cursor-agent
-```
-
-The agent reads `TASK.md`, pulls the ticket from the Jira MCP server, follows the chain into Confluence, Sentry, and TestRail, then fixes the feature.
-
-When the agent finishes, close it.
-
-**Back in Terminal A:**
-
-Press Enter.
-
-The runner will:
-
-* run the quality gate
-* measure token usage
-* store Run 1 as the baseline
-
-For Cursor, the runner prints a dashboard link. Read the token count from the matching run, using the printed `runStart` time.
-
-## Run 2: Optimize `AGENTS.md`
-
-In this run, optimize the agent instructions.
-
-The file to edit is:
-
-```bash
+```text
 apps/angular-demo/AGENTS.md
 ```
 
-Use the hygiene methods from the theory section.
-
-You can also apply the reference workshop solution:
+To try the reference instruction file:
 
 ```bash
 npm run agents:solution
 ```
 
-To restore the original bloated version:
+To restore the original:
 
 ```bash
 npm run agents:reset
 ```
 
-Start the second measured run.
-
-**Terminal A — prep and measure:**
+Start the measurement in Terminal A:
 
 ```bash
 npm run workshop:run2
 ```
 
-The runner prints the exact launch command for the current selected agent.
+Complete the two-terminal sequence. The runner checks the solution, compares usage with Run 1, and prints the token change.
 
-**Terminal B — agent:**
+### Run 3: Try tool-response optimizations
 
-Run the command printed by `workshop:run2`.
-
-Examples:
+Restore the original instructions so this run measures the tool layer independently:
 
 ```bash
-cd apps/angular-demo
-claude --session-id <id>
+npm run agents:reset
 ```
 
-```bash
-cd apps/angular-demo
-codex
-```
+Choose a method from `docs/tool-layer-matrix.md`, then implement it through the proxy or hooks.
 
-```bash
-cd apps/angular-demo
-cursor-agent
-```
+#### Option A: MCP proxy
 
-If you are already inside `apps/angular-demo`, you do not need to `cd` again.
+Open `docs/mcp-proxy-methods.md`.
 
-Start the agent fresh after `workshop:run2` is already waiting.
-
-When the agent finishes, close it.
-
-**Back in Terminal A:**
-
-Press Enter.
-
-The runner will:
-
-* run the quality gate
-* measure token usage
-* compare Run 2 against Run 1
-* print the token delta
-
-## Run 3: Optimize the tool layer
-
-In this run, choose one tool-layer optimization:
-
-* MCP proxy
-* agent hooks
-
-Both approaches compact or control the information sent to the agent.
-
-### Option A: MCP proxy
-
-Set up the proxy scaffold:
+Set up the proxy:
 
 ```bash
 npm run proxy:setup
 ```
 
-Then edit:
+Edit:
 
-```bash
+```text
 servers/proxy/src/index.ts
 ```
 
-You can also apply the reference solution:
+After each code change, rebuild and restart the proxy:
+
+```bash
+npm run proxy:rebuild
+```
+
+Alternatively, apply the reference implementation:
 
 ```bash
 npm run proxy:solution
@@ -290,186 +260,84 @@ npm run proxy:solution
 Useful reset commands:
 
 ```bash
-npm run proxy:reset
-npm run proxy:direct
+npm run proxy:direct    # Restore direct MCP connections
+npm run proxy:reset     # Restore direct connections and the proxy scaffold
 ```
 
-### Option B: Agent hooks
+#### Option B: Agent hooks
 
-Set up the passthrough hook scaffold:
+Open `docs/hooks-methods.md` for your agent's file locations and configuration requirements.
+
+Install the passthrough scaffold:
 
 ```bash
 npm run hooks:setup
 ```
 
-You can also apply the reference compaction hook:
+Implement your chosen transformation, or apply the reference compaction hook:
 
 ```bash
 npm run hooks:solution
 ```
 
-To reset:
+To remove the hook and restore the direct MCP connection:
 
 ```bash
 npm run hooks:reset
 ```
 
-### Measure Run 3
+#### Measure the result
 
-**Terminal A — prep and measure:**
+Start the measurement in Terminal A:
 
 ```bash
 npm run workshop:run3
 ```
 
-The runner prints the exact launch command for the current selected agent.
+Complete the two-terminal sequence. The runner checks the solution, compares usage with Run 1, and prints the token change.
 
-**Terminal B — agent:**
+Reset the active optimization before testing another approach.
 
-Run the command printed by `workshop:run3`.
+## Review your results
 
-Examples:
+Results are appended to:
 
-```bash
-cd apps/angular-demo
-claude --session-id <id>
+```text
+.measurements/metrics.jsonl
 ```
 
-```bash
-cd apps/angular-demo
-codex
-```
+Use `docs/measurements-2026-10.md` to understand the reference experiment and compare:
 
-```bash
-cd apps/angular-demo
-cursor-agent
-```
+- Whether the solution passed the quality gate
+- Total tokens
+- Cost, where available
+- MCP output size
+- Run time
 
-If you are already inside `apps/angular-demo`, you do not need to `cd` again.
+The reference experiment used one attempt per configuration. Differences below approximately 20% may be noise. Its mock responses were deliberately enlarged, so the results depend on how much MCP output enters the context.
 
-Start the agent fresh after `workshop:run3` is already waiting.
+Fewer tokens can still produce a higher cost. The measurements guide includes examples and separates cached input, uncached input, and output.
 
-When the agent finishes, close it.
+## Keep the agent focused on the product task
 
-**Back in Terminal A:**
+Run the coding agent from:
 
-Press Enter.
-
-The runner will:
-
-* run the quality gate
-* measure token usage
-* compare Run 3 against Run 1
-* print the token delta
-
-## Agent working directory
-
-The participant agent runs from:
-
-```bash
+```text
 apps/angular-demo/
 ```
 
-From there, it sees only the files it needs:
+The agent should use `TASK.md` and the product files to fix the feature. Keep workshop infrastructure and reference tests outside its task scope, including `workshop/`, `grader/`, `e2e/`, and `servers/`.
 
-```bash
-AGENTS.md
-TASK.md
-.mcp.json
-.codex/config.toml
-.cursor/mcp.json
-```
+These files live in the same repository, so the working directory alone does not prevent access. The measurements guide documents how reading hidden reference tests affected one baseline.
 
-This is intentional.
+Measure on a clean, committed tree: uncommitted file paths can reveal hidden tests through `git status`.
 
-The agent should stay focused on the product task. It should not read or depend on the workshop infrastructure above it, including:
+## Clean up
 
-* `workshop/`
-* `grader/`
-* `e2e/`
-* `servers/`
-
-The agent also does not see the quality gate. The facilitator grades each run out-of-band through the workshop runner.
-
-## Commands
-
-### Setup and environment
-
-```bash
-npm run setup [-- <agent>]    # Docker + MCP; pick or auto-detect the agent
-npm run cleanup               # stop Docker and remove MCP configs
-npm run workshop:doctor       # preflight check
-```
-
-### Variant selection
-
-```bash
-npm run variant -- 1
-npm run variant -- 2
-npm run variant -- 3
-```
-
-Optional agent switch:
-
-```bash
-npm run variant -- <n> <agent>
-```
-
-Example:
-
-```bash
-npm run variant -- 2 claude
-```
-
-### Measured runs
-
-```bash
-npm run workshop:run1         # baseline run
-npm run workshop:run2         # AGENTS.md hygiene run
-npm run workshop:run3         # tool-layer optimization run
-```
-
-The quality gate runs automatically inside each measured run.
-
-### Run 2: `AGENTS.md` hygiene
-
-```bash
-npm run agents:solution       # apply optimized AGENTS.md
-npm run agents:reset          # restore original AGENTS.md
-```
-
-### Run 3: MCP proxy
-
-```bash
-npm run proxy:setup           # MCP config → compact proxy on :9100
-npm run proxy:solution        # apply reference proxy and rebuild
-npm run proxy:reset           # reset proxy implementation
-npm run proxy:direct          # return to direct MCP wiring
-```
-
-### Run 3: Agent hooks
-
-```bash
-npm run hooks:setup           # install passthrough hook scaffold
-npm run hooks:solution        # apply reference compaction hook
-npm run hooks:reset           # reset hook implementation
-```
-
-## Docs
-
-Read these during the theory and optimization parts of the workshop:
-
-```bash
-docs/hygiene-methods.md       # 10 AGENTS.md optimization levers
-docs/mcp-proxy-methods.md     # 8 MCP proxy methods
-```
-
-## Cleanup
-
-When you are done:
+When you finish:
 
 ```bash
 npm run cleanup
 ```
 
-This stops Docker and removes generated MCP configs.
+This stops Docker and removes generated MCP configurations.
