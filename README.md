@@ -15,12 +15,12 @@ The reference files are in `docs/`.
 
 | File | What you'll find |
 | --- | --- |
-| [Optimization catalog](docs/optimization-catalog.md) | Start here: an overview of the optimization methods, their two layers, and how they map to the sandbox runs |
-| [Hygiene methods](docs/hygiene-methods.md) | Ten levers covering model choice, reasoning effort, context scope, file hints, output, prompts, caching, configuration, subagents, and skills |
-| [Tool-response methods](docs/tool-layer-matrix.md) | Seven methods for reducing tool responses, with agent support, tradeoffs, and measured or estimated effects |
-| [MCP proxy implementation guide](docs/mcp-proxy-methods.md) | How to implement the tool-response methods in the proxy, including commands, file locations, and reference code |
-| [Agent hooks implementation guide](docs/hooks-methods.md) | How to implement the methods with agent hooks, including configuration, output formats, and agent-specific limitations |
-| [October 2026 measurements](docs/measurements-2026-10.md) | The measured results, test setup, token and cost breakdowns, and limitations |
+| [Optimization catalog](docs/eng/optimization-catalog.md) | Start here: an overview of the optimization methods, their two layers, and how they map to the sandbox runs |
+| [Hygiene methods](docs/eng/hygiene-methods.md) | Ten levers covering model choice, reasoning effort, context scope, file hints, output, prompts, caching, configuration, subagents, and skills |
+| [Tool-response methods](docs/eng/tool-layer-matrix.md) | Seven methods for reducing tool responses, with agent support, tradeoffs, and measured or estimated effects |
+| [MCP proxy implementation guide](eng/docs/mcp-proxy-methods.md) | How to implement the tool-response methods in the proxy, including commands, file locations, and reference code |
+| [Agent hooks implementation guide](docs/eng/hooks-methods.md) | How to implement the methods with agent hooks, including configuration, output formats, and agent-specific limitations |
+| [October 2026 measurements](docs/eng/measurements-2026-10.md) | The measured results, test setup, token and cost breakdowns, and limitations |
 
 The guides distinguish **measured results**, **calculations**, and **estimates**. Use those labels when comparing methods. A reduction in response size, total tokens, and cost describes three different outcomes.
 
