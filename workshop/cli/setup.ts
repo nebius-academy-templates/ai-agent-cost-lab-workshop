@@ -34,4 +34,4 @@ run('setup:docker');
 run('setup:mcp');
 run('setup:trust');
 
-console.log(`\n✅ Workshop ready (agent: ${agent}). Pick your variant: npm run variant -- <1|2|3>`);
+console.log(`\n✅ Workshop ready (agent: ${agent}). Get the task: npm run task`);

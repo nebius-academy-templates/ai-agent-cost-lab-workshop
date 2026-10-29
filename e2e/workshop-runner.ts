@@ -1,10 +1,11 @@
 /**
- * Workshop runner — measurement harness for Claude Code / Codex / Cursor.
+ * Workshop runner — measurement harness for Claude Code / Codex / Cursor / Antigravity.
  *
  * All agents: interactive (participant opens agent, works, closes) → measure.
  * Claude: parse the pinned --session-id transcript (~/.claude/projects/.../<id>.jsonl) — isolated
  * Codex:  parse newest ~/.codex/sessions rollout since run start (time-window isolated)
  * Cursor: quality gate auto; tokens recorded manually from cursor.com/dashboard/usage
+ * agy:    conversations in the app dir since run start (~/.gemini/antigravity-cli, see usage-agy.ts)
  *
  * Usage:
  *   npm run workshop:run1   # Bloated baseline
@@ -13,12 +14,13 @@
  *   Agent is picked once at `npm run setup -- <agent>` (WORKSHOP_AGENT= still overrides).
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
 import { resetScenario, verify, printDelta, fmt, parseCodexSession, parseClaudeSession, type Snapshot } from "./_lib.js";
-import { sendWorkshopMetric } from "./grafana.js";
+import { recordWorkshopMetric } from "./metrics.js";
+import { parseAgySession } from "./usage-agy.js";
 import { resolveAgent } from "../workshop/cli/agent.js";
 
 const REPO_ROOT = join(import.meta.dirname, "..");
@@ -56,15 +58,9 @@ function getGitUser(): string {
   try { return execFileSync("git", ["config", "user.name"], { encoding: "utf8" }).trim() || "unknown"; } catch { return "unknown"; }
 }
 
-function activeScenario(): string {
-  try {
-    const name = readFileSync(join(REPO_ROOT, ".workshop", "active-scenario"), "utf8").trim();
-    if (name) return name;
-  } catch {}
-  return "catalog-pagination";
-}
+const SCENARIO = "catalog-pagination";
 
-/** Which lever this run exercises — labels the Grafana metric (esp. Run 3: proxy vs hooks). */
+/** Which lever this run exercises — labels the recorded metric (esp. Run 3: proxy vs hooks). */
 function detectLever(): string {
   if (RUN_NUM === "1") return "baseline";
   if (RUN_NUM === "2") return "hygiene";
@@ -79,11 +75,15 @@ function detectLever(): string {
     if (readFileSync(join(APP_DIR, ".codex", "hooks.json"), "utf8").includes("PostToolUse")) return "hooks";
   } catch { /* no .codex/hooks.json */ }
   try {
-    const cursorMcp = readFileSync(join(APP_DIR, ".cursor", "mcp.json"), "utf8");
+    // Cursor reads project config from the git root, not the app folder.
+    const cursorMcp = readFileSync(join(REPO_ROOT, ".cursor", "mcp.json"), "utf8");
     if (cursorMcp.includes("9100")) return "proxy";
-    const cursorHooks = readFileSync(join(APP_DIR, ".cursor", "hooks.json"), "utf8");
-    if (cursorHooks.includes("afterMCPExecution")) return "hooks";
+    const cursorHooks = readFileSync(join(REPO_ROOT, ".cursor", "hooks.json"), "utf8");
+    if (cursorHooks.includes("postToolUse")) return "hooks";
   } catch { /* no .cursor config */ }
+  try {
+    if (readFileSync(join(APP_DIR, ".agents", "mcp_config.json"), "utf8").includes("9100")) return "proxy";
+  } catch { /* no .agents/mcp_config.json */ }
   if (existsSync(join(APP_DIR, ".claude", "hooks", "post-tool-use.ts"))) return "hooks";
   return "tool-layer";
 }
@@ -114,11 +114,32 @@ function loadDelta(n: string) {
   return JSON.parse(readFileSync(f, "utf8"));
 }
 
-function waitForEnter(): Promise<void> {
+function ask(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question("\n  Press Enter when done…", () => { rl.close(); resolve(); });
+    rl.question(question, (answer) => { rl.close(); resolve(answer); });
   });
+}
+
+async function waitForEnter(): Promise<void> {
+  await ask("\n  Press Enter when done…");
+}
+
+/** Files an earlier run left that the agent can use: its saved fixes, and the last grade, which the
+ * testrail/github MCP servers report. An agent that reads either skips work, and the run is skewed. */
+async function offerToDeleteLeftovers(): Promise<void> {
+  if (!existsSync(SAVE_DIR)) return;
+  const leftovers = readdirSync(SAVE_DIR).filter((f) => f.startsWith("agent-fix-run") || f.endsWith(".gate.json"));
+  if (leftovers.length === 0) return;
+  console.log("  ⚠️  Left in .workshop/ by an earlier run (the agent can read them):");
+  for (const f of leftovers) console.log(`    ${f}`);
+  const answer = await ask("  Delete them before this run? [Y/n] ");
+  if (/^n/i.test(answer.trim())) {
+    console.log("  Kept — the agent may use them, so this run is not a clean measurement.\n");
+    return;
+  }
+  for (const f of leftovers) rmSync(join(SAVE_DIR, f));
+  console.log("  Deleted.\n");
 }
 
 function compareRuns() {
@@ -171,6 +192,7 @@ async function main() {
   console.log(`  Agent: ${agent} | User: ${gitUser}`);
   console.log(`═══════════════════════════════════════════\n`);
 
+  await offerToDeleteLeftovers();
   cleanApp();
   resetScenario();
 
@@ -191,8 +213,10 @@ async function main() {
     console.log(`    claude --session-id ${sessionId}`);
   } else if (agent === "codex") {
     console.log(`    codex`);
+  } else if (agent === "agy") {
+    console.log("    agy");
   } else {
-    console.log("    cursor-agent");
+    console.log("    agent");
   }
   console.log("");
   console.log("  Read TASK.md, write your prompt, let the agent");
@@ -215,11 +239,14 @@ async function main() {
   // Capture usage — per-agent, isolated (no global ccusage):
   let d: Snapshot;
   if (agent === "codex") {
-    d = parseCodexSession(runStart);
+    d = parseCodexSession(APP_DIR, runStart);
     console.log(`\n  📊 Codex usage (session): ${fmt(d.inputTokens)} in + ${fmt(d.outputTokens)} out + cache r=${fmt(d.cacheReadTokens)} = ${fmt(d.totalTokens)} total`);
   } else if (agent === "claude") {
     d = parseClaudeSession(APP_DIR, sessionId, runStart);
     console.log(`\n  📊 Claude usage (session ${sessionId.slice(0, 8)}…): ${fmt(d.inputTokens)} in + ${fmt(d.outputTokens)} out + cache r=${fmt(d.cacheReadTokens)} w=${fmt(d.cacheCreationTokens)} = ${fmt(d.totalTokens)} total`);
+  } else if (agent === "agy") {
+    d = parseAgySession(APP_DIR, runStart);
+    console.log(`\n  📊 agy usage: ${fmt(d.inputTokens)} in + ${fmt(d.outputTokens)} out = ${fmt(d.totalTokens)} total`);
   } else {
     d = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 0, totalCost: 0 };
   }
@@ -235,11 +262,11 @@ async function main() {
   console.log("\n🔍 Verifying quality gate…");
   const gatePassed = verify();
 
-  // Step 5: save & send
+  // Step 5: save & record
   saveDelta(d, gatePassed, agent === "cursor");
 
-  sendWorkshopMetric({
-    run: Number(RUN_NUM), agent, user: gitUser, task: activeScenario(), lever: detectLever(),
+  recordWorkshopMetric({
+    run: Number(RUN_NUM), agent, user: gitUser, task: SCENARIO, lever: detectLever(),
     inputTokens: d.inputTokens, outputTokens: d.outputTokens,
     cacheReadTokens: d.cacheReadTokens, cacheWriteTokens: d.cacheCreationTokens,
     totalTokens: d.totalTokens, totalCost: d.totalCost, gatePassed,

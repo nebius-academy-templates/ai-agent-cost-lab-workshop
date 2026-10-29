@@ -6,6 +6,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { jsonContent, FILLER, metadataBloat } from '../bloat.js';
+import { rng, paragraph, person, isoAt, pick, PEOPLE } from '../noise.js';
 
 interface Ticket {
   key: string;
@@ -49,68 +50,6 @@ exact behavior, the Sentry issue, and the TestRail acceptance suite.`,
     resources: { confluence: 'ENG-CATALOG-PAGINATION', sentry: 'PLATA-WEB-1F2A', testrailSuite: 'S-CATALOG-PAGINATION' },
     labels: ['catalog', 'pagination', 'web', 'frontend'],
   },
-  'JIRA-0410': {
-    key: 'JIRA-0410',
-    summary: 'Orders grid: URL state ignored, no debounce/caching/stale-while-revalidate, and stale responses overwrite newer ones',
-    description: `The Orders page (/orders) is a data grid (filter by status, search, sort, paginate).
-It loads page 1 on open, but the whole grid state is broken in several interacting ways:
-
-1. It ignores the URL. /orders?page=3&sort=total-desc&status=refunded&q=ana still shows the
-   default page-1/no-filter view, and browser back/forward don't restore state.
-2. Changing a filter or sort does not reset to page 1 — you can sit on page 5 of a 2-page result.
-3. Every keystroke fires a request (no debounce) and a slow earlier response can overwrite a newer
-   one (mergeMap keeps every request in flight) — the list storms the API and flickers.
-4. Every navigation re-fetches and flashes the loading state; there's no caching/dedup and no
-   stale-while-revalidate (the list blanks out between pages).
-5. Empty results are always shown the same way — no "no orders" vs "nothing matches your filter"
-   vs "that page is out of range" distinction.
-
-Expected: a fully URL-driven, debounced, race- and cache-safe grid. See the linked Confluence
-contract, Sentry issue, and TestRail acceptance suite.`,
-    definitionOfDone: [
-      'page, sort, status, q, and location all live in the URL and are read on init (deep-linkable).',
-      'Changing a filter or sort resets to page 1 and updates the URL.',
-      'Back/forward (route changes) reload the corresponding state.',
-      'Absent or invalid page defaults to 1; never send an undefined/NaN/<1 page.',
-      'Debounce search input so rapid keystrokes produce one request for the final query.',
-      'A stale (slower, older) response never overwrites a newer one (cancel in flight).',
-      'Cache by the full query key and dedupe in flight: a repeated query issues zero new GET /api/orders calls — even one whose earlier request was superseded mid-flight (do not only fill the cache on completion).',
-      'Stale-while-revalidate: keep previous results visible while loading an uncached query (no loading flash).',
-      'Classify empty results: no-orders vs no-match (filtered) vs out-of-range (page beyond last).',
-      'Surface an error state when a request fails — show an error, not a silent blank grid.',
-      'Do not change the GET /api/orders contract; add no runtime dependencies.',
-    ],
-    resources: { confluence: 'ENG-ORDERS-SEARCH', sentry: 'PLATA-WEB-ORDERS', testrailSuite: 'S-ORDERS-SEARCH' },
-    labels: ['orders', 'data-grid', 'debounce', 'web', 'frontend'],
-  },
-  'JIRA-0455': {
-    key: 'JIRA-0455',
-    summary: 'Edit product: no client-side validation, backend 400 swallowed, stored XSS, no dirty guard, no optimistic save',
-    description: `The Edit product page (/edit/:id) gives no feedback on invalid input, is unsafe, and has poor UX.
-
-Steps to reproduce:
-1. Open /edit/BRT-001, clear the name or set a negative price or spicy level 99, and save.
-   The invalid payload is sent and the backend 400 is swallowed — nothing is shown next to the field.
-2. Set the description to <img src=x onerror=alert(1)> and reload; the script executes (stored XSS).
-3. Change any field, then click the browser back button — the unsaved changes are silently discarded
-   (no dirty-state guard).
-4. The UI waits for the server round-trip before showing "saved" (no optimistic update).
-
-Expected: client-side validation before submit, per-field error display (including backend 400
-mapping), output-encoding for the description, dirty-state guard on navigation, and an optimistic
-save pattern. See the linked Sentry XSS report and Confluence contract.`,
-    definitionOfDone: [
-      'Validate all inputs client-side before save: name required (≤80), price 0–100000, description ≤500, spicyLevel 0–5.',
-      'Block save and show inline field-level error messages when validation fails.',
-      'Map backend 400 issues (error + issues[{path, message}]) onto the corresponding fields.',
-      'Escape/sanitize the description on render — no HTML injection / XSS.',
-      'Detect dirty state: warn or block when navigating away from an unsaved edited form.',
-      'saving, saved, and error states are all surfaced.',
-      'Do not change the PUT /api/products/:id contract; add no runtime dependencies.',
-    ],
-    resources: { confluence: 'ENG-EDIT-VALIDATION', sentry: 'PLATA-WEB-EDIT-XSS', testrailSuite: 'S-EDIT-VALIDATION' },
-    labels: ['edit', 'validation', 'xss', 'security', 'dirty-state', 'web'],
-  },
 };
 
 function bloatedIssue(key: string) {
@@ -142,13 +81,145 @@ function bloatedIssue(key: string) {
         testrail: { suiteId: ticket.resources.testrailSuite, hint: 'fetch with testrail_get_cases / testrail_get_results' },
       },
       comment: {
-        total: 2,
+        total: 2 + NOISE_COMMENTS,
         comments: [
           { id: '1', author: { displayName: 'Tech Lead' }, created: '2026-06-13T10:00:00Z', body: 'Repro confirmed. See the Definition of Done and the linked contract page.' },
           { id: '2', author: { displayName: 'QA Bot' }, created: '2026-06-14T11:00:00Z', body: 'Acceptance is tracked in the linked TestRail suite; CI gates the commit.' },
+          ...noiseComments(key),
         ],
       },
       watches: { watchCount: 6, isWatching: false },
+      attachment: noiseAttachments(key),
+      worklog: noiseWorklog(key),
+      ...noiseCustomFields(key),
+      metadata: metadataBloat(key),
+    },
+    renderedFields: { description: renderHtml(ticket.description), definitionOfDone: ticket.definitionOfDone.map(renderHtml) },
+    changelog: noiseChangelog(key),
+    names: NOISE_NAMES,
+    schema: NOISE_SCHEMA,
+  };
+}
+
+// ── Real-API volume the agent never needs (see noise.ts) ─────────────────────────────────────────
+const NOISE_COMMENTS = 8;
+const NOISE_SEARCH_HITS = 8;
+const CUSTOM_FIELD_NAMES = [
+  'Story Points', 'Sprint', 'Epic Link', 'Team', 'Rank', 'Flagged', 'Severity', 'Environment', 'Found In Version',
+  'Fix Version', 'Root Cause', 'Customer Impact', 'Release Notes', 'QA Owner', 'Design Link', 'Analytics Tag',
+  'Support Case', 'Region', 'Platform', 'Browser',
+] as const;
+const NOISE_NAMES = Object.fromEntries(CUSTOM_FIELD_NAMES.map((n, i) => [`customfield_${10100 + i}`, n]));
+const NOISE_SCHEMA = Object.fromEntries(CUSTOM_FIELD_NAMES.map((n, i) => [`customfield_${10100 + i}`, {
+  type: i % 3 === 0 ? 'number' : i % 3 === 1 ? 'string' : 'array',
+  custom: `com.atlassian.jira.plugin.system.customfieldtypes:${n.toLowerCase().replace(/[^a-z]+/g, '')}`,
+  customId: 10100 + i,
+}]));
+
+function noiseCustomFields(key: string) {
+  const next = rng(`cf-${key}`);
+  return Object.fromEntries(CUSTOM_FIELD_NAMES.map((n, i) => [
+    `customfield_${10100 + i}`,
+    i % 4 === 0 ? null : i % 4 === 1 ? Math.floor(next() * 13) : i % 4 === 2 ? `${n}: ${pick(next, ['n/a', 'pending', 'web', 'mx-north', 'release-26.6'])}` : [pick(next, ['web', 'catalog', 'mx', 'pos'])],
+  ]));
+}
+
+function noiseComments(key: string) {
+  const next = rng(`comments-${key}`);
+  return Array.from({ length: NOISE_COMMENTS }, (_, i) => ({
+    id: String(10 + i),
+    self: `https://platacard.atlassian.net/rest/api/3/issue/${key}/comment/${10 + i}`,
+    author: person(next),
+    created: isoAt(i * 5),
+    updated: isoAt(i * 5 + 1),
+    body: paragraph(next, 4),
+    jsdPublic: true,
+  }));
+}
+
+function noiseChangelog(key: string) {
+  const next = rng(`changelog-${key}`);
+  const fieldsChanged = ['status', 'assignee', 'Sprint', 'labels', 'priority', 'Story Points', 'Fix Version', 'description'] as const;
+  return {
+    startAt: 0,
+    maxResults: 8,
+    total: 8,
+    histories: Array.from({ length: 8 }, (_, i) => ({
+      id: String(5000 + i),
+      author: person(next),
+      created: isoAt(i * 3),
+      items: Array.from({ length: 1 + (i % 3) }, () => {
+        const field = pick(next, fieldsChanged);
+        return { field, fieldtype: 'jira', from: null, fromString: pick(next, ['To Do', 'In Progress', 'Unassigned', '3', 'web']), to: null, toString: pick(next, ['In Review', 'To Do', pick(next, PEOPLE), '5', 'catalog']) };
+      }),
+    })),
+  };
+}
+
+function noiseAttachments(key: string) {
+  const next = rng(`attach-${key}`);
+  return Array.from({ length: 3 }, (_, i) => ({
+    id: String(70000 + i),
+    self: `https://platacard.atlassian.net/rest/api/3/attachment/${70000 + i}`,
+    filename: pick(next, ['screen-recording.mp4', 'har-export.har', 'console.log', 'catalog-page.png', 'network.json']).replace('.', `-${i + 1}.`),
+    author: person(next),
+    created: isoAt(i * 7),
+    size: 10_000 + Math.floor(next() * 4_000_000),
+    mimeType: pick(next, ['video/mp4', 'application/json', 'text/plain', 'image/png']),
+    content: `https://platacard.atlassian.net/rest/api/3/attachment/content/${70000 + i}`,
+    thumbnail: `https://platacard.atlassian.net/rest/api/3/attachment/thumbnail/${70000 + i}`,
+  }));
+}
+
+function noiseWorklog(key: string) {
+  const next = rng(`worklog-${key}`);
+  return {
+    startAt: 0,
+    maxResults: 3,
+    total: 3,
+    worklogs: Array.from({ length: 3 }, (_, i) => ({
+      id: String(9000 + i),
+      author: person(next),
+      comment: paragraph(next, 2),
+      started: isoAt(i * 11),
+      timeSpent: `${1 + (i % 4)}h`,
+      timeSpentSeconds: (1 + (i % 4)) * 3600,
+    })),
+  };
+}
+
+function renderHtml(text: string): string {
+  return text.split('\n').map((line) => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`).join('');
+}
+
+/** Search hit for a real ticket: issue fields without comments, history or rendered duplicates. */
+function searchIssue(key: string) {
+  const full = bloatedIssue(key);
+  if (!('fields' in full) || full.fields === undefined) return full;
+  const { comment: _comment, attachment: _attachment, worklog: _worklog, ...fields } = full.fields;
+  return { id: full.id, key: full.key, self: full.self, fields };
+}
+
+/** Other tickets a broad JQL also matches — closed work from earlier sprints. */
+function noiseIssue(i: number) {
+  const next = rng(`issue-${i}`);
+  const key = `JIRA-${String(200 + i).padStart(4, '0')}`;
+  return {
+    id: `100${200 + i}`,
+    key,
+    self: `https://platacard.atlassian.net/rest/api/3/issue/${key}`,
+    fields: {
+      summary: pick(next, ['Finance chart tooltip overlaps legend', 'Navbar logo blurry on retina', 'Orders export CSV encoding', 'Footer links open in same tab', 'Edit form autosave toast copy', 'Theme tokens for dark mode']) + ` (#${i + 1})`,
+      issuetype: { name: pick(next, ['Bug', 'Task', 'Story']), id: '1', iconUrl: 'https://platacard.atlassian.net/images/icons/task.png', subtask: false },
+      status: { name: 'Done', id: '10001', statusCategory: { key: 'done', name: 'Done', colorName: 'green' } },
+      priority: { name: pick(next, ['Low', 'Medium']), id: '3' },
+      labels: [pick(next, ['finance', 'shell', 'orders', 'theme'])],
+      assignee: person(next),
+      reporter: person(next),
+      created: isoAt(i * 13),
+      updated: isoAt(i * 13 + 40),
+      resolutiondate: isoAt(i * 13 + 40),
+      description: paragraph(next, 5),
       metadata: metadataBloat(key),
     },
   };
@@ -159,9 +230,9 @@ function searchIssues(jql: string) {
     expand: 'schema,names',
     startAt: 0,
     maxResults: 50,
-    total: Object.keys(TICKETS).length,
+    total: Object.keys(TICKETS).length + NOISE_SEARCH_HITS,
     jql,
-    issues: Object.keys(TICKETS).map(bloatedIssue),
+    issues: [...Object.keys(TICKETS).map(searchIssue), ...Array.from({ length: NOISE_SEARCH_HITS }, (_, i) => noiseIssue(i))],
     warningMessages: [],
     names: { summary: 'Summary', status: 'Status', priority: 'Priority' },
   };
@@ -183,7 +254,7 @@ export function registerJira(server: McpServer): void {
     {
       title: 'Retrieve a Single Jira Issue with Complete Fields, Definition of Done, Linked Resources, Comments, Change Log, and Watchers',
       description: `Fetches one issue by key with all fields including the Definition of Done and links to the related Confluence page, Sentry error, and TestRail suite, plus the full comment thread and watchers. ${FILLER}`,
-      inputSchema: { issueKey: z.string().describe('Issue key, e.g. JIRA-0321, JIRA-0410, JIRA-0455.') },
+      inputSchema: { issueKey: z.string().describe('Issue key, e.g. JIRA-0321.') },
     },
     async ({ issueKey }) => jsonContent(bloatedIssue(issueKey)),
   );

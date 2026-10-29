@@ -60,6 +60,14 @@ const STRIP_KEYS = new Set([
 ]);
 
 const STRIP_ARRAYS = new Set(["contributors", "watchers", "searchMetadata"]);
+// Real-API volume the mocks return (servers/mcp/src/noise.ts) — history, rendered duplicates,
+// telemetry. Never needed for the fix.
+const NOISE_KEYS = new Set([
+  "changelog", "renderedFields", "names", "schema", "attachment", "worklog", "updateAuthor", "avatarUrls",
+  "bodyStorage", "ancestors", "children", "history", "status_history", "check_runs",
+  "breadcrumbs", "contexts", "request", "sdk", "preContext", "postContext", "vars",
+]);
+const isNoiseKey = (k: string): boolean => NOISE_KEYS.has(k) || k.startsWith("customfield_");
 
 function stripFiller(value: string): string {
   return value.replace(/\s*This endpoint is part of the enterprise integration suite[\s\S]*$/g, "").trim();
@@ -72,7 +80,7 @@ function stripBloat(value: unknown): unknown {
 
   const out: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (STRIP_KEYS.has(key) || STRIP_ARRAYS.has(key)) continue;
+    if (STRIP_KEYS.has(key) || STRIP_ARRAYS.has(key) || isNoiseKey(key)) continue;
     out[key] = stripBloat(child);
   }
   return out;

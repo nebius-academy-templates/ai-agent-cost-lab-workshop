@@ -1,7 +1,7 @@
 /**
- * E2E Test: afterMCPExecution Hooks A/B — Cursor
+ * E2E Test: postToolUse Hooks A/B — Cursor
  *
- * Thesis: An afterMCPExecution hook that compacts bloated MCP responses
+ * Thesis: A postToolUse hook that compacts bloated MCP responses
  * before they enter the agent's context significantly reduces token
  * consumption vs running without hooks.
  *
@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { runCursor, printDelta, printCompare, type RunResult } from "./_lib.js";
 
 const REPO_ROOT = join(import.meta.dirname, "..");
-const HOOKS_JSON = join(REPO_ROOT, "apps", "angular-demo", ".cursor", "hooks.json");
+const HOOKS_JSON = join(REPO_ROOT, ".cursor", "hooks.json");
 const SOLUTION = join(REPO_ROOT, "workshop", "hooks", "compact-mcp.cursor.ts");
 const SCAFFOLD_CMD = "npx tsx .cursor/hooks/compact-mcp.ts"; // committed passthrough болванка
 
@@ -32,7 +32,7 @@ After collecting all data, summarize in ONE paragraph what needs to be fixed.`;
 // Run A = no hook; Run B = the reference solution; cleanup = the committed passthrough scaffold.
 
 function writeHooks(command: string | null) {
-  const hooks = command ? { afterMCPExecution: [{ command, timeout: 30 }] } : {};
+  const hooks = command ? { postToolUse: [{ command, matcher: "MCP:.*", timeout: 30 }] } : {};
   writeFileSync(HOOKS_JSON, JSON.stringify({ version: 1, hooks }, null, 2) + "\n");
 }
 
@@ -44,7 +44,7 @@ function restoreScaffold() { writeHooks(SCAFFOLD_CMD); console.log("  ↩︎  Ho
 
 async function main() {
   console.log("═══════════════════════════════════════════");
-  console.log("  E2E: afterMCPExecution Hooks A/B — Cursor");
+  console.log("  E2E: postToolUse Hooks A/B — Cursor");
   console.log("  Thesis: hooks compact MCP responses →");
   console.log("  fewer tokens in agent context");
   console.log("═══════════════════════════════════════════\n");
@@ -90,7 +90,7 @@ async function main() {
       ? (1 - runB.usage.totalTokens / runA.usage.totalTokens) * 100
       : 0;
 
-  console.log(`\n  Thesis: afterMCPExecution hooks reduce total tokens by ${reduction.toFixed(1)}%`);
+  console.log(`\n  Thesis: postToolUse hooks reduce total tokens by ${reduction.toFixed(1)}%`);
 
   if (runA.usage.inputTokens > 0 && runB.usage.inputTokens > 0) {
     const inputReduction = (1 - runB.usage.inputTokens / runA.usage.inputTokens) * 100;

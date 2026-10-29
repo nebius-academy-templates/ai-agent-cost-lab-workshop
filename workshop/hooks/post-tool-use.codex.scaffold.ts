@@ -2,8 +2,8 @@
  * Codex PostToolUse hook scaffold.
  *
  * Passthrough by default: it reads the hook event, does nothing, and emits no output.
- * Run 3 exercise: compact `tool_response` for MCP tools and emit:
- *   { "decision": "block", "reason": "<compacted replacement>" }
+ * Run 3 exercise: compact `tool_response` for MCP tools and emit (replaces the result the model sees):
+ *   { "continue": false, "stopReason": "MCP result compacted", "reason": "<compacted replacement>" }
  */
 
 interface HookEvent {

@@ -56,8 +56,8 @@ npm run hooks:reset      # remove the hook, restore the direct MCP connection
 | **Handler types** | `command`, `http`, `mcp_tool`, `prompt`, `agent` | `command` (no others found in the docs) | `command` (no others found in the docs) |
 | **State between calls** | `http` hook → a server with memory; `command` → a file | file | file |
 | **Doesn't work** | — | `updatedMCPToolOutput` (read but not applied; the hook is marked failed). With Sol 6.1, MCP hooks never fire (code mode) | `afterMCPExecution` — observe only, no replacement |
-| **To make it work** | A trusted project folder (`npm run setup:trust`) | A trusted project + approve **each** hook in `/hooks` (approval is by hash — again after every edit) or `--dangerously-bypass-hook-trust` | `.cursor/hooks.json` at the git root; headless runs used `agent -p … --trust --approve-mcps --force` |
-| **Measured, run tokens** | **−60%**, cost −46% | 0% (never fired) | **−70%** |
+| **To make it work** | A trusted project folder (`npm run setup:trust`) | A trusted project + approve **each** hook in `/hooks` (approval is by hash — again after every edit) or `--dangerously-bypass-hook-trust` | `.cursor/hooks.json` at the git root; headless runs used `agent -p … --trust --approve-mcps`, with shell commands from the `.cursor/cli.json` allow-list |
+| **Measured, median run tokens** | −22%, cost **−46%** | never fires (2026-10-07) | **−60%** |
 
 ---
 
@@ -229,19 +229,22 @@ a field the agent needs may be dropped.
 The reference hook shrinks the mock responses by **90%** (over 9 tools, from 74% to 98%). Per-tool
 table: [tool-layer-matrix.md](./tool-layer-matrix.md#reference-measurement-on-the-workshop-mocks).
 
-**Measured runs 2026-10-07** (Run 3 with the hook against Run 1; report:
-[measurements-2026-10.md](./measurements-2026-10.md)):
+**Measured runs 2026-10-27** (Run 3 with the hook against Run 1; medians of 5 attempts for
+Claude Code, 3 passing attempts for Cursor; report: [measurements-2026-10.md](./measurements-2026-10.md)):
 
 | Agent | MCP output, K characters | Tokens | Cost |
 |---|---|---|---|
-| Claude Code (Sonnet 5.5) | 108 → 10 | **−60%** | **−46%** |
-| Cursor (GLM 5.2 High) | 154 → 11 | **−70%** | no price |
-| Codex (Sol 6.1) | 142 → 142 | +14% | +2% |
+| Claude Code (Sonnet 5.5) | 108 → 10 | −22% | **−46%** |
+| Cursor (GLM 5.2 High) | 142 → 10 | **−60%** | no price |
+| Codex (Sol 6.1), 2026-10-07 | 142 → 142 | +14% | +2% |
 
-- The hook beat the proxy for both agents where it fired (proxy: Claude −54%, Cursor −12%).
-- An MCP response enters the context once and is re-read on every later request, so the smaller
-  response pays off many times over the run.
+- Tokens: the hook and the proxy cut the same amount (proxy: Claude −23%, Cursor −60%).
+- Cost: the hook was cheaper for Claude (proxy: −35%). Less MCP output means fewer tokens written to
+  the cache, and a cache write costs 40× a cache read.
 - Codex: the hook never fired (code mode, see the note at the top).
+- **Cursor drops a slow hook silently.** In one Cursor run the hook took 19–39 s per call, three
+  calls exceeded the 30-second `timeout`, and the model got the full responses. Check the MCP
+  output size after a hook run.
 
 ---
 

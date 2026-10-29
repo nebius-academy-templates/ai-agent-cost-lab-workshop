@@ -20,7 +20,7 @@ npm run workshop:run2     # resets baseline, waits while you run the agent fresh
 
 | Lever | What to try | What it targets |
 |---|---|---|
-| **Scope the context** | Name the exact feature dir for your variant instead of letting the agent explore. | Fewer / smaller file reads. |
+| **Scope the context** | Name the exact feature dir (`src/app/catalog/`) instead of letting the agent explore. | Fewer / smaller file reads. |
 | **Tighten the config** | Trim `AGENTS.md`/`CLAUDE.md` to essentials. | The instruction prefix is sent every turn. |
 | **One clear prompt** | Give the full task + constraints up front instead of discovering them over many turns. | Fewer turns → less re-sent history. |
 | **Model choice** | Set a cheaper model in `.claude/settings.json` for this mechanical fix. | Per-token price. |
@@ -49,9 +49,11 @@ Build a thin layer that compacts the bloated MCP responses **before** they reach
   (reference answers in `workshop/hooks/`):
   - **Claude** — `workshop/hooks/post-tool-use.ts`, activated via `.claude/hooks/`.
   - **Codex** — `apps/angular-demo/.codex/hooks/post-tool-use.ts`, enabled in `.codex/hooks.json`
-    (codex can only *replace* a result via `decision:"block"`, not transparently rewrite it).
-  - **Cursor** — `apps/angular-demo/.cursor/hooks/compact-mcp.ts`, wired in `.cursor/hooks.json`
-    (`afterMCPExecution`; MCP stays direct via `.cursor/mcp.json`). Allowlists in
+    (codex replaces a result via `{"continue": false, "reason": "<compacted>"}` — a normal tool result;
+    the hook must be trusted once in `/hooks`).
+  - **Cursor** — Cursor reads project config from the **repo root** `.cursor/` (not the app folder):
+    `.cursor/hooks/compact-mcp.ts`, wired in `.cursor/hooks.json` (`postToolUse`, matcher `MCP:.*`,
+    output `updated_mcp_tool_output`; MCP stays direct via `.cursor/mcp.json`). Allowlists in
     `.cursor/cli.json` + `.cursor/permissions.json` (hook command: `npx:tsx .cursor/hooks/compact-mcp.ts`).
     ```bash
     npm run hooks:setup      # passthrough scaffold + register hook
@@ -59,7 +61,7 @@ Build a thin layer that compacts the bloated MCP responses **before** they reach
     #   npm run hooks:solution   → reference (facilitator)
     #   npm run hooks:reset      → disable hooks
     ```
-  - **Cursor proxy** — point `.cursor/mcp.json` at `:9100`:
+  - **Cursor proxy** — point the repo-root `.cursor/mcp.json` at `:9100`:
     ```bash
     npm run proxy:setup      # .cursor/mcp.json → proxy
     #   npm run proxy:solution → reference + rebuild

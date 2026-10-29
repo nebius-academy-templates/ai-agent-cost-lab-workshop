@@ -1,120 +1,203 @@
 /**
- * Cursor afterMCPExecution hook — reference SOLUTION. Compacts bloated MCP tool responses before
- * they enter the agent's context. Cursor's hook does a clean rewrite (exit 0 → use the output JSON),
- * so — unlike codex — no block-hack is needed.
+ * Cursor postToolUse hook — reference SOLUTION (the Run 3 "answer" for the hooks lever).
  *
- * Stdin: a JSON event with `response` (string) or `result` (object). Rewrite it and print to stdout.
- * Exit codes: 0 → use output JSON; 2 → block; other → pass through.
+ * Cursor runs project hooks from the git root's .cursor/hooks.json (`postToolUse`, matcher `MCP:.*`).
+ * For MCP tools the event carries `tool_name` = "MCP:<tool>" and `tool_output` = the MCP result as a
+ * JSON string, {"content":[{"type":"text","text":"<json>"}]}. Printing
+ *   { "updated_mcp_tool_output": { "content": [{ "type": "text", "text": "<compacted>" }] } }
+ * replaces what the model sees. (`afterMCPExecution` fires too but has no output fields — it cannot
+ * rewrite anything.) Compaction logic is the same as the Claude reference
+ * (workshop/hooks/post-tool-use.solution.ts); only the event and the output channel differ.
  *
- * (The committed .cursor/hooks/compact-mcp.ts is a passthrough scaffold; this is the filled-in answer.)
+ * `npm run hooks:setup` installs the passthrough scaffold into .cursor/hooks/compact-mcp.ts;
+ * `npm run hooks:solution` copies this file over it.
  */
-interface HookEvent {
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  response?: string;
-  result?: unknown;
+
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+type JsonRecord = Record<string, unknown>;
+
+const STRIP_KEYS = new Set([
+  "metadata", "createdBy", "createdAt", "lastReviewedBy", "lastReviewedAt", "reviewIntervalDays",
+  "ownerTeam", "stakeholderTeams", "correlationId", "auditTrailUrl", "viewCount", "uniqueViewers",
+  "searchMetadata", "self", "iconUrl", "accountId", "emailAddress", "html_url", "node_id",
+]);
+const STRIP_ARRAYS = new Set(["contributors", "watchers"]);
+
+function isRecord(v: unknown): v is JsonRecord {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
-// ── Compactors ────────────────────────────────────────────────────────
-
-function compactJira(response: string): string {
-  try {
-    const data = JSON.parse(response);
-    if (data?.fields) {
-      const { summary, description, definitionOfDone, relatedResources } = data.fields;
-      return JSON.stringify({ summary, description, definitionOfDone, relatedResources });
-    }
-  } catch {}
-  return response;
+/** Strip the repeated marketing/compliance filler the mock injects into long text bodies. */
+function stripFiller(s: string): string {
+  return s.replace(/\n*\bThis endpoint is part of the enterprise integration suite[\s\S]*$/g, "").trim();
 }
 
-function compactConfluence(response: string): string {
-  try {
-    const data = JSON.parse(response);
-    if (data?.body) {
-      return JSON.stringify({ title: data.title, body: String(data.body).substring(0, 2000), space: data.space });
-    }
-  } catch {}
-  return response;
+function truncate(s: string, max = 6000): string {
+  return s.length > max ? `${s.slice(0, max)}\n\n... [truncated by hook]` : s;
 }
 
-function compactSentry(response: string): string {
-  try {
-    const data = JSON.parse(response);
-    return JSON.stringify({
-      title: data.title,
-      culprit: data.culprit,
-      message: data.message,
-      // deep access into an external (deserialized) MCP payload — cast at the boundary
-      frames: (data.entries as any)?.[0]?.data?.values?.[0]?.stacktrace?.frames?.slice(0, 3),
-    });
-  } catch {}
-  return response;
-}
-
-function compactTestrail(response: string): string {
-  try {
-    const data = JSON.parse(response);
-    if (data?.cases) {
-      return JSON.stringify({
-        suiteId: data.suiteId,
-        size: data.size,
-        cases: (data.cases as Array<Record<string, unknown>>).map((c) => ({ id: c.id, title: c.title, priority: c.priority })),
-      });
-    }
-    if (data?.results) {
-      return JSON.stringify({
-        runId: data.runId,
-        summary: data.summary,
-        results: (data.results as Array<Record<string, unknown>>).map((r) => ({
-          test_id: r.test_id, title: r.title, status: r.status,
-        })),
-      });
-    }
-  } catch {}
-  return response;
-}
-
-function compactGeneric(response: string): string {
-  if (response.length > 5000) {
-    return response.substring(0, 5000) + "\n\n... [truncated by cursor hook]";
+/** Generic recursive bloat stripper — drops the metadata fields + bloat arrays the agent never uses. */
+function stripBloat(v: unknown): unknown {
+  if (typeof v === "string") return truncate(stripFiller(v));
+  if (v === null || typeof v !== "object") return v;
+  if (Array.isArray(v)) return v.map(stripBloat);
+  const out: JsonRecord = {};
+  for (const [k, child] of Object.entries(v as JsonRecord)) {
+    if (STRIP_KEYS.has(k) || STRIP_ARRAYS.has(k)) continue;
+    out[k] = stripBloat(child);
   }
-  return response;
+  return out;
 }
 
-function compactResponse(event: HookEvent): string {
-  const rawResponse = event.response || (event.result ? JSON.stringify(event.result) : "");
-  if (!rawResponse) return "";
+// ── Per-server compactors: keep only what a coder needs to fix the bug ──
 
-  const name = event.tool_name || "";
+function compactIssue(issue: unknown): unknown {
+  if (!isRecord(issue) || !isRecord(issue.fields)) return stripBloat(issue);
+  const f = issue.fields;
+  // The first comments carry the triage; the long tail is sprint chatter.
+  const comments = isRecord(f.comment) && Array.isArray(f.comment.comments)
+    ? f.comment.comments.slice(0, MAX_COMMENTS).map((c) => (isRecord(c) ? { body: c.body } : c))
+    : undefined;
+  return {
+    key: issue.key, summary: f.summary, description: f.description,
+    definitionOfDone: f.definitionOfDone, relatedResources: f.relatedResources, labels: f.labels,
+    status: isRecord(f.status) ? f.status.name : f.status, comments,
+    commentTotal: isRecord(f.comment) ? f.comment.total : undefined,
+  };
+}
 
-  if (name.startsWith("mcp__jira")) return compactJira(rawResponse);
-  if (name.startsWith("mcp__confluence")) return compactConfluence(rawResponse);
-  if (name.startsWith("mcp__sentry")) return compactSentry(rawResponse);
-  if (name.startsWith("mcp__testrail")) return compactTestrail(rawResponse);
-  if (name.startsWith("mcp__")) return compactGeneric(rawResponse);
+const MAX_COMMENTS = 3;
 
-  return rawResponse;
+function compactJira(p: unknown): unknown {
+  if (!isRecord(p)) return p;
+  if (Array.isArray(p.issues)) return { jql: p.jql, total: p.total, issues: p.issues.map(compactIssue) };
+  if (isRecord(p.fields)) return compactIssue(p);
+  return stripBloat(p);
+}
+
+function compactConfluence(p: unknown): unknown {
+  if (!isRecord(p)) return p;
+  if (Array.isArray(p.results)) {
+    const sel = p.results.slice(0, 5);
+    return { query: p.query, totalCount: p.totalCount, returnedCount: sel.length,
+      results: sel.map((i) => (isRecord(i) ? { id: i.id, title: i.title, excerpt: i.excerpt, url: i.url } : i)) };
+  }
+  if (typeof p.body === "string") return { id: p.id, title: p.title, space: p.space, body: truncate(stripFiller(p.body), 5000) };
+  return stripBloat(p);
+}
+
+function compactSentry(p: unknown): unknown {
+  if (!isRecord(p)) return p;
+  if (Array.isArray(p.issues)) {
+    return { query: p.query, total: p.total, issues: p.issues.map((i) => (isRecord(i)
+      ? { id: i.id, shortId: i.shortId, title: i.title, culprit: i.culprit, level: i.level, status: i.status, count: i.count }
+      : i)) };
+  }
+  const entries = Array.isArray(p.entries) ? p.entries : [];
+  const exception = entries
+    .map((e) => (isRecord(e) && isRecord(e.data) && Array.isArray(e.data.values) ? e.data.values[0] : undefined))
+    .find(isRecord);
+  const frames = isRecord(exception?.stacktrace) && Array.isArray(exception.stacktrace.frames)
+    ? exception.stacktrace.frames.slice(0, 5).map(stripBloat) : undefined;
+  const meta = isRecord(p.metadata) ? p.metadata : {};
+  return { id: p.id, title: p.title, culprit: p.culprit, message: p.message, type: meta.type, value: meta.value, frames };
+}
+
+function compactTestrail(p: unknown): unknown {
+  if (!isRecord(p)) return p;
+  if (Array.isArray(p.cases)) {
+    return { suiteId: p.suiteId, scenario: p.scenario, size: p.size,
+      cases: p.cases.map((c) => (isRecord(c) ? { id: c.id, title: c.title, priority: c.priority } : c)) };
+  }
+  if (Array.isArray(p.results)) {
+    return { runId: p.runId, scenario: p.scenario, summary: p.summary,
+      results: p.results.map((r) => (isRecord(r) ? { test_id: r.test_id, title: r.title, status: r.status } : r)) };
+  }
+  return stripBloat(p);
+}
+
+function compactGithub(p: unknown): unknown {
+  if (!isRecord(p)) return p;
+  if (Array.isArray(p.statuses)) {
+    return { ref: p.ref, state: p.state,
+      statuses: p.statuses.map((s) => (isRecord(s) ? { context: s.context, state: s.state, description: s.description } : s)) };
+  }
+  return stripBloat(p);
+}
+
+function compactByServer(toolName: string, payload: unknown): unknown {
+  if (toolName.startsWith("mcp__jira")) return compactJira(payload);
+  if (toolName.startsWith("mcp__confluence")) return compactConfluence(payload);
+  if (toolName.startsWith("mcp__sentry")) return compactSentry(payload);
+  if (toolName.startsWith("mcp__testrail")) return compactTestrail(payload);
+  if (toolName.startsWith("mcp__github")) return compactGithub(payload);
+  return stripBloat(payload);
+}
+
+/** tool_response is the MCP content array [{type:"text", text:"<json>"}]; compact each text block. */
+function compactToolResponse(toolName: string, toolResponse: unknown): string | null {
+  const blocks = Array.isArray(toolResponse) ? toolResponse : [];
+  const texts = blocks
+    .filter((b): b is { type?: string; text?: string } => isRecord(b) && b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text as string);
+  if (!texts.length) return null;
+
+  const before = texts.join("\n").length;
+  const compacted = texts.map((t) => {
+    try {
+      return JSON.stringify(compactByServer(toolName, JSON.parse(t)), null, 2);
+    } catch {
+      return truncate(stripFiller(t));
+    }
+  }).join("\n");
+
+  return compacted.length < before ? compacted : null;
+}
+
+/**
+ * Dedup — the stateless workaround. A hook is a fresh process per call with NO memory, so we FAKE
+ * state with a per-session file on disk: if the same (tool, input) was seen this session, return a
+ * tiny "unchanged" marker instead of the payload. Caveats a proxy doesn't have: racy under parallel
+ * tools, and the file lingers in tmp. (A proxy keeps this in memory — see servers/proxy.)
+ */
+function dedupMarker(name: string, input: unknown, sessionId?: string): string | null {
+  if (!sessionId) return null;
+  const file = join(tmpdir(), `cursor-hook-dedup-${sessionId}.json`);
+  const key = createHash("sha256").update(`${name}|${JSON.stringify(input)}`).digest("hex");
+  let seen: string[] = [];
+  try { if (existsSync(file)) seen = JSON.parse(readFileSync(file, "utf8")); } catch { /* fresh */ }
+  if (seen.includes(key)) {
+    return JSON.stringify({ _unchanged: true, _note: "identical to an earlier call this session — result omitted to save tokens" });
+  }
+  try { seen.push(key); writeFileSync(file, JSON.stringify(seen)); } catch { /* best effort */ }
+  return null;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
+
+/** "MCP:jira_get_issue" → "mcp__jira__jira_get_issue", the naming the compactors key on. */
+function canonicalToolName(cursorName: string): string {
+  const tool = cursorName.replace(/^MCP:/, "");
+  return `mcp__${tool.split("_")[0]}__${tool}`;
+}
 
 let input = "";
 process.stdin.on("data", (chunk: Buffer) => { input += chunk.toString(); });
 process.stdin.on("end", () => {
   try {
-    const event: HookEvent = JSON.parse(input);
-
-    if (event.response !== undefined) {
-      event.response = compactResponse(event);
-    } else if (event.result !== undefined) {
-      event.result = JSON.parse(compactResponse(event));
+    const e = JSON.parse(input) as { tool_name?: string; tool_input?: unknown; tool_output?: string; conversation_id?: string };
+    if (!(e.tool_name ?? "").startsWith("MCP:") || typeof e.tool_output !== "string") return;
+    const name = canonicalToolName(e.tool_name ?? "");
+    const result = JSON.parse(e.tool_output) as { content?: unknown };
+    // Dedup first (cheapest), then field-filter + structured-summary + truncation.
+    const updated = dedupMarker(name, e.tool_input, e.conversation_id) ?? compactToolResponse(name, result.content);
+    if (updated !== null) {
+      process.stdout.write(JSON.stringify({ updated_mcp_tool_output: { content: [{ type: "text", text: updated }] } }));
     }
-
-    process.stdout.write(JSON.stringify(event));
-    process.exit(0);
-  } catch {
-    process.stdout.write(input);
-    process.exit(0);
-  }
+  } catch { /* malformed → passthrough */ }
+  // emit nothing → original result is kept
 });

@@ -6,15 +6,15 @@ What a participant can change **without touching the agent loop**: the model, th
 
 > **As of:** October 2026 — Claude Code 2.1.289, Codex CLI 0.160, Cursor 2.4+.
 > **Related:** [tool-layer-matrix.md](./tool-layer-matrix.md) — methods for tool responses (Run 3);
-> [measurements-2026-10.md](./measurements-2026-10.md) — measured runs of four agents;
-> [charter.md](./charter.md) — workshop design.
+> [measurements-2026-10.md](./measurements-2026-10.md) — measured runs of four agents.
 
 ---
 
 ## What changed since July 2026
 
-- **Measured on four agents (2026-10-07).** The reference `AGENTS.md` alone cut tokens by 28–44%
-  for Claude Code, Codex and Cursor. See [Measured Run 2](#measured-run-2-2026-10-07).
+- **Measured on three agents (2026-10-27, 3–5 attempts each).** The reference `AGENTS.md` alone
+  cut median tokens by 28–41% for Claude Code, Codex and Cursor, and Claude Code's cost by 61%. See
+  [Measured Run 2](#measured-run-2-2026-10-27).
 - **Lazy Tool Loading is no longer a lever.** All three agents now load MCP tool schemas on
   demand (see [Dropped](#dropped)).
 - **Hooks moved** to [tool-layer-matrix.md](./tool-layer-matrix.md): they work on tool responses,
@@ -58,8 +58,8 @@ What the context is made of:
 3. Extra agent steps are the largest cost you control: 8 requests spent looking for a browser and
    starting a dev server cost 16% of the run (see L5).
 
-This breakdown is for Claude Code on Opus 5.5. In the 2026-10-07 matrix the shape held for every
-agent: cache reads were 84–92% of all tokens.
+This breakdown is for Claude Code on Opus 5.5. In the 2026-10-27 matrix the shape held for every
+agent: cache reads were 81–98% of all tokens.
 
 ---
 
@@ -70,7 +70,7 @@ Per 1M tokens, Anthropic API:
 | Model | Input | Output | Cache read | Cache write, 5 min | Cache write, 1 h |
 |---|---|---|---|---|---|
 | Opus 5.5 | $4 | $20 | $0.20 (×0.05) | $5 (×1.25) | $8 (×2) |
-| Sonnet 5.5 | $2 | $10 | $0.20 (×0.1) | $2.50 | $4 |
+| Sonnet 5.5 | $2 | $10 | $0.10 (×0.05) | $2.50 (×1.25) | $4 (×2) |
 | Haiku 4.5 | $1 | $5 | $0.10 (×0.1) | $1.25 | $2 |
 
 - Output still costs **5×** input.
@@ -135,11 +135,10 @@ model: haiku
 | Model | Run 1 cost | Change |
 |---|---|---|
 | Opus 5.5 (as run) | $1.46 | — |
-| Sonnet 5.5 | $0.89 | **−39%** |
+| Sonnet 5.5 | $0.73 | **−50%** |
 | Haiku 4.5 | $0.45 | **−70%** |
 
-Why Sonnet gives −39% and not −50%: a cache read costs the same on Opus 5.5 and Sonnet 5.5 ($0.20),
-and cache reads were 22% of the run.
+Every Sonnet 5.5 price is half the Opus 5.5 price, so the same tokens cost half.
 
 ### Risk
 
@@ -442,7 +441,7 @@ Hooks work on tool responses, like the proxy → [tool-layer-matrix.md](./tool-l
 
 | # | Lever | What to do | Effect on the Run 1 cost | Source |
 |---|---|---|---|---|
-| **L0** | Model choice | `/model sonnet` before the start | −39% (Sonnet 5.5) · −70% (Haiku 4.5) | calculated |
+| **L0** | Model choice | `/model sonnet` before the start | −50% (Sonnet 5.5) · −70% (Haiku 4.5) | calculated |
 | **L1** | Effort | `/effort low` | −10–20% | estimate |
 | **L2** | Context scoping | "only the feature folder named in the ticket" | −5–10% | estimate |
 | **L3** | File hints | list the files | 0–5% (the ticket already names the files) | estimate |
@@ -458,30 +457,35 @@ Hooks work on tool responses, like the proxy → [tool-layer-matrix.md](./tool-l
 Levers act on different cost items, so they multiply rather than add up:
 
 ```
-L0 Sonnet 5.5 (−39%) × L5 precise prompt (−16%) × L1 effort low (−10%)
-  = 0.61 × 0.84 × 0.90 ≈ 0.46  →  about −50% of cost (estimate)
+L0 Sonnet 5.5 (−50%) × L5 precise prompt (−16%) × L1 effort low (−10%)
+  = 0.50 × 0.84 × 0.90 ≈ 0.38  →  about −60% of cost (estimate)
 ```
 
 The reference `workshop/reference/AGENTS.optimized.md` (`npm run agents:solution`) covers L2–L4 and
 L7.
 
-### Measured Run 2 (2026-10-07)
+### Measured Run 2 (2026-10-27)
 
-Only the reference `AGENTS.md` against the bloated one. Same model, same prompt, one attempt per
-agent. Report: [measurements-2026-10.md](./measurements-2026-10.md).
+Only the reference `AGENTS.md` against the bloated one. Same model, same prompt; medians of 5
+attempts (Claude Code) or 3 passing attempts (Codex, Cursor). Report:
+[measurements-2026-10.md](./measurements-2026-10.md).
 
 | Agent | Tokens | Cost | What changed |
 |---|---|---|---|
-| Claude Code (Sonnet 5.5) | **−44%** | **−38%** | 1 MCP call instead of 3 |
-| Codex (Sol 6.1) | **−28%** | −15% | 24 s shorter |
-| Cursor (GLM 5.2 High) | **−30%** | no price | MCP output −24% |
-| agy (Gemini 3.8 Flash) | −48% ⚠️ | −34% ⚠️ | baseline inflated: Run 1 read the hidden tests |
+| Claude Code (Sonnet 5.5) | **−28%** | **−61%** | 1 MCP call instead of 2–4, in every attempt |
+| Codex (Sol 6.1) | **−36%** | −19% | 10 model requests instead of 14 |
+| Cursor (GLM 5.2 High) | **−41%** | no price | 5 model requests instead of 7; 1 of 4 attempts failed typecheck |
+| agy (Gemini 3.8 Flash), 2026-10-07 | −48% ⚠️ | −34% ⚠️ | one attempt; baseline inflated: Run 1 read the hidden tests |
 
-- The reference `AGENTS.md` without a model change already cut cost by 15–38%.
+- The reference `AGENTS.md` without a model change already cut cost by 19% (Codex) and 61%
+  (Claude Code).
 - The measured effect is larger than the per-lever estimates for L2–L4 and L7 added up (about
   10–25%). Each step the agent skips also skips every later re-read of what that step would have
-  added to the context. Claude's single MCP call instead of three is an example: 37K instead of 108K
-  characters of MCP output.
+  added to the context. Claude's single MCP call is an example: 37K instead of 72–142K characters
+  of MCP output.
+- Claude's cost fell more than its tokens because it wrote far fewer tokens to the cache (median
+  7.8K instead of 54.5K), and a cache write costs 40× a cache read. Part of that comes from a warm
+  cache in repeat attempts: attempt 1 alone gave −42%.
 - Model choice (L0) was not part of the measurement: Claude ran on Sonnet 5.5 throughout.
 
 ---

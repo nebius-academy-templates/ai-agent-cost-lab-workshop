@@ -1,7 +1,8 @@
 /**
  * hooks:<mode> — opt into / out of the Run 3 "hooks" lever for the active agent. Each agent registers
  * a post-MCP hook differently (Claude: settings.json PostToolUse; Codex: .codex/hooks.json PostToolUse;
- * Cursor: .cursor/hooks.json afterMCPExecution), so this dispatches on the resolved agent.
+ * Cursor: repo-root .cursor/hooks.json postToolUse), so this dispatches on the resolved agent. Antigravity
+ * (agy) has no hook scaffold yet — Run 3 for it goes through the proxy.
  *
  *   npm run hooks:setup      # install the passthrough hook scaffold + register it
  *   npm run hooks:solution   # install the reference compaction hook (MCP → direct)
@@ -84,23 +85,30 @@ const HANDLERS: Record<AgentName, Record<Mode, () => void>> = {
   },
   cursor: {
     setup() {
-      ensureDir('apps/angular-demo/.cursor/hooks');
-      cp('workshop/hooks/hooks.cursor.json', 'apps/angular-demo/.cursor/hooks.json');
-      console.log('✅ Cursor hook scaffold registered (.cursor/hooks/compact-mcp.ts passthrough). Edit it, then: npm run workshop:run3');
+      ensureDir('.cursor/hooks');
+      cp('workshop/hooks/hooks.cursor.json', '.cursor/hooks.json');
+      console.log('✅ Cursor hook scaffold registered (repo-root .cursor/hooks/compact-mcp.ts passthrough). Edit it, then: npm run workshop:run3');
     },
     solution() {
       proxyDirect('cursor');
-      cp('workshop/hooks/compact-mcp.cursor.ts', 'apps/angular-demo/.cursor/hooks/compact-mcp.ts');
-      cp('workshop/hooks/hooks.cursor.json', 'apps/angular-demo/.cursor/hooks.json');
-      console.log('✅ Cursor hooks reference applied (.cursor/mcp.json=direct, afterMCPExecution registered). Now: npm run workshop:run3');
+      cp('workshop/hooks/compact-mcp.cursor.ts', '.cursor/hooks/compact-mcp.ts');
+      cp('workshop/hooks/hooks.cursor.json', '.cursor/hooks.json');
+      console.log('✅ Cursor hooks reference applied (.cursor/mcp.json=direct, postToolUse registered). Now: npm run workshop:run3');
     },
     reset() {
-      cp('workshop/hooks/hooks.cursor.disabled.json', 'apps/angular-demo/.cursor/hooks.json');
-      gitCheckout('apps/angular-demo/.cursor/hooks/compact-mcp.ts');
+      cp('workshop/hooks/hooks.cursor.disabled.json', '.cursor/hooks.json');
+      gitCheckout('.cursor/hooks/compact-mcp.ts');
       console.log('✅ Cursor hooks disabled + passthrough scaffold restored.');
     },
   },
+  agy: hooksUnavailable('agy'),
 };
+
+/** No hook scaffold/reference for this agent yet — Run 3 goes through the proxy instead. */
+function hooksUnavailable(agent: AgentName): Record<Mode, () => void> {
+  const stop = (): void => die(`hooks lever is not set up for ${agent} yet — use the proxy for Run 3: npm run proxy:setup`);
+  return { setup: stop, solution: stop, reset: stop };
+}
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const mode = process.argv[2];

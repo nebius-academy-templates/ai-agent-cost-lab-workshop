@@ -3,8 +3,7 @@
 The umbrella reference for every lever that lowers an agent's cost in this workshop. It splits
 them into two layers and links to the detailed catalogs.
 
-> **Related:** [charter.md](./charter.md) — workshop design;
-> [hygiene-methods.md](./hygiene-methods.md) — hygiene levers (L0–L9);
+> **Related:** [hygiene-methods.md](./hygiene-methods.md) — hygiene levers (L0–L9);
 > [tool-layer-matrix.md](./tool-layer-matrix.md) — tool-response methods (7);
 > how to build them: [mcp-proxy-methods.md](./mcp-proxy-methods.md), [hooks-methods.md](./hooks-methods.md);
 > measured runs: [measurements-2026-10.md](./measurements-2026-10.md).
@@ -13,10 +12,10 @@ them into two layers and links to the detailed catalogs.
 
 ## Two layers
 
-| Layer | What you set | Where | Catalog | Measured effect, 2026-10-07 |
+| Layer | What you set | Where | Catalog | Measured effect, 2026-10-27 (medians) |
 |---|---|---|---|---|
-| **Hygiene (L0–L9)** | Model, Effort, Scoping, File Hints, Output, Up-front Prompt, Cache, Config, Subagents, Skills | `settings.json` / `config.toml`, `AGENTS.md`, the prompt, `.claude/agents/`, `.claude/skills/` | [hygiene-methods.md](./hygiene-methods.md) | reference `AGENTS.md`: tokens −28…−44%, cost −15…−38% |
-| **Tool responses (7 methods)** | Field Filtering, Truncation, Summary, Pagination, Dedup, Diff, Aggregation | the proxy **or** agent hooks **or** built-in limits | [tool-layer-matrix.md](./tool-layer-matrix.md) | hook: tokens −60…−70% (Claude, Cursor); proxy: tokens −5…−54% |
+| **Hygiene (L0–L9)** | Model, Effort, Scoping, File Hints, Output, Up-front Prompt, Cache, Config, Subagents, Skills | `settings.json` / `config.toml`, `AGENTS.md`, the prompt, `.claude/agents/`, `.claude/skills/` | [hygiene-methods.md](./hygiene-methods.md) | reference `AGENTS.md`: tokens −28…−41%, cost −19…−61% |
+| **Tool responses (7 methods)** | Field Filtering, Truncation, Summary, Pagination, Dedup, Diff, Aggregation | the proxy **or** agent hooks **or** built-in limits | [tool-layer-matrix.md](./tool-layer-matrix.md) | hook: tokens −22…−60%, cost −46% (Claude); proxy: tokens −23…−60%, cost −26…−35% |
 
 ---
 
@@ -31,15 +30,16 @@ them into two layers and links to the detailed catalogs.
   they enter the context. The effect follows the share of MCP responses in the context, and it grows
   because every later request re-reads them.
 
-**Measured 2026-10-07:** 4 agents, 15 runs, all passed the quality gate. Report:
+**Measured 2026-10-27:** 3 agents, 43 runs (5 attempts per cell for Claude Code, 3 passing for
+Codex and Cursor), 42 passed the quality gate. Medians against the Run 1 median. Report:
 [measurements-2026-10.md](./measurements-2026-10.md).
 
 | Agent | Run 2 — hygiene | Run 3 — proxy | Run 3 — hook |
 |---|---|---|---|
-| Claude Code (Sonnet 5.5) | tokens −44%, cost −38% | tokens −54%, cost −36% | tokens −60%, cost −46% |
-| Codex (Sol 6.1) | tokens −28%, cost −15% | tokens −5%, cost +12% | hook never fired |
-| Cursor (GLM 5.2 High) | tokens −30% | tokens −12% | tokens −70% |
-| agy (Gemini 3.8 Flash) | tokens −48% ⚠️ | tokens −33%, cost −9% ⚠️ | no reference hook |
+| Claude Code (Sonnet 5.5) | tokens −28%, cost **−61%** | tokens −23%, cost −35% | tokens −22%, cost −46% |
+| Codex (Sol 6.1) | tokens −36%, cost −19% | tokens −26%, cost −26% | hook never fires (2026-10-07) |
+| Cursor (GLM 5.2 High) | tokens −41% | tokens −60% | tokens −60% |
+| agy (Gemini 3.8 Flash), 2026-10-07, one attempt | tokens −48% ⚠️ | tokens −33%, cost −9% ⚠️ | no reference hook |
 
 ⚠️ agy Run 1 read the hidden tests, so its baseline is inflated.
 

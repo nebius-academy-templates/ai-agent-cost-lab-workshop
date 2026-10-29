@@ -57,15 +57,19 @@ function stripBloat(v: unknown): unknown {
 function compactIssue(issue: unknown): unknown {
   if (!isRecord(issue) || !isRecord(issue.fields)) return stripBloat(issue);
   const f = issue.fields;
+  // The first comments carry the triage; the long tail is sprint chatter.
   const comments = isRecord(f.comment) && Array.isArray(f.comment.comments)
-    ? f.comment.comments.map((c) => (isRecord(c) ? { body: c.body } : c))
+    ? f.comment.comments.slice(0, MAX_COMMENTS).map((c) => (isRecord(c) ? { body: c.body } : c))
     : undefined;
   return {
     key: issue.key, summary: f.summary, description: f.description,
     definitionOfDone: f.definitionOfDone, relatedResources: f.relatedResources, labels: f.labels,
     status: isRecord(f.status) ? f.status.name : f.status, comments,
+    commentTotal: isRecord(f.comment) ? f.comment.total : undefined,
   };
 }
+
+const MAX_COMMENTS = 3;
 
 function compactJira(p: unknown): unknown {
   if (!isRecord(p)) return p;

@@ -85,21 +85,22 @@ const checks: readonly Check[] = [
   },
   function activeTask(): CheckResult {
     return presentApp('TASK.md')
-      ? { name: 'active task', status: 'ok', detail: 'TASK.md present (npm run variant -- N to pick)' }
-      : { name: 'active task', status: 'warn', detail: 'no TASK.md — npm run variant -- 1' };
+      ? { name: 'active task', status: 'ok', detail: 'TASK.md present' }
+      : { name: 'active task', status: 'warn', detail: 'no TASK.md — npm run task' };
   },
   function cursorConfig(): CheckResult {
-    const hasMcp = presentApp('.cursor/mcp.json');
-    const hasHook = presentApp('.cursor/hooks/compact-mcp.ts');
-    const hasCli = presentApp('.cursor/cli.json');
-    const hasPerms = presentApp('.cursor/permissions.json');
+    // Cursor reads project config from the git root's .cursor/, not the app folder.
+    const hasMcp = present('.cursor/mcp.json');
+    const hasHook = present('.cursor/hooks/compact-mcp.ts');
+    const hasCli = present('.cursor/cli.json');
+    const hasPerms = present('.cursor/permissions.json');
     if (hasMcp && hasHook && hasCli && hasPerms) {
-      return { name: 'Cursor config (app)', status: 'ok', detail: '.cursor/mcp + cli.json + permissions.json + hooks' };
+      return { name: 'Cursor config (repo root)', status: 'ok', detail: '.cursor/mcp + cli.json + permissions.json + hooks' };
     }
     if (!hasMcp && !hasHook && !hasCli && !hasPerms) {
-      return { name: 'Cursor config (app)', status: 'warn', detail: 'run WORKSHOP_AGENT=cursor npm run proxy:direct' };
+      return { name: 'Cursor config (repo root)', status: 'warn', detail: 'run WORKSHOP_AGENT=cursor npm run proxy:direct' };
     }
-    return { name: 'Cursor config (app)', status: 'warn', detail: 'incomplete .cursor/ — WORKSHOP_AGENT=cursor npm run proxy:direct' };
+    return { name: 'Cursor config (repo root)', status: 'warn', detail: 'incomplete .cursor/ — WORKSHOP_AGENT=cursor npm run proxy:direct' };
   },
   function tracker(): CheckResult {
     try {
@@ -111,10 +112,11 @@ const checks: readonly Check[] = [
     const found: string[] = [];
     try { execFileSync('claude', ['--version'], { stdio: 'ignore' }); found.push('claude'); } catch {}
     try { execFileSync('codex', ['--version'], { stdio: 'ignore' }); found.push('codex'); } catch {}
-    try { execFileSync('cursor-agent', ['--version'], { stdio: 'ignore' }); found.push('cursor'); } catch {}
+    try { execFileSync('agent', ['--version'], { stdio: 'ignore' }); found.push('cursor'); } catch {}
+    try { execFileSync('agy', ['--version'], { stdio: 'ignore' }); found.push('agy'); } catch {}
     return found.length > 0
       ? { name: 'agents installed', status: 'ok', detail: found.join(', ') }
-      : { name: 'agents installed', status: 'fail', detail: 'none — install Claude Code, Codex, or cursor-agent' };
+      : { name: 'agents installed', status: 'fail', detail: 'none — install Claude Code, Codex, Cursor CLI (agent) or Antigravity CLI (agy)' };
   },
 ];
 

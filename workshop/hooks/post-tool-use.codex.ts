@@ -3,10 +3,11 @@
  *
  * Goal: compact deliberately bloated MCP tool results before the next model turn.
  *
- * Codex currently has no transparent "rewrite the tool result" channel in this workshop setup.
- * Returning `{ decision: "block", reason: "<compacted result>" }` is the Codex-specific
- * substitution path used by the e2e benchmark. The hook only emits that response when the
- * compacted payload is smaller; otherwise it stays silent and lets the original result through.
+ * Codex has no "rewrite the tool result" field (`updatedMCPToolOutput` is parsed but ignored).
+ * Returning `{ continue: false, reason: "<compacted result>" }` replaces the model-visible tool
+ * output with `reason` as a normal (non-error) result and the turn continues; the UI marks the hook
+ * "Stopped". (`decision: "block"` also substitutes, but the model sees it as a failed tool call.)
+ * The hook only emits when the compacted payload is smaller; otherwise it stays silent.
  *
  * Expected stdin shape, with small variations supported:
  *   { tool_name, tool_input, tool_response, ... }
@@ -99,7 +100,7 @@ function compactIssue(issue: unknown): unknown {
 
   const fields = issue.fields;
   const comment = isRecord(fields.comment) && Array.isArray(fields.comment.comments)
-    ? fields.comment.comments.map((c) => isRecord(c) ? { body: c.body } : c)
+    ? fields.comment.comments.slice(0, MAX_COMMENTS).map((c) => isRecord(c) ? { body: c.body } : c)
     : undefined;
 
   return {
@@ -111,8 +112,12 @@ function compactIssue(issue: unknown): unknown {
     labels: fields.labels,
     status: isRecord(fields.status) ? fields.status.name : fields.status,
     comments: comment,
+    commentTotal: isRecord(fields.comment) ? fields.comment.total : undefined,
   };
 }
+
+// The first comments carry the triage; the long tail is sprint chatter.
+const MAX_COMMENTS = 3;
 
 function compactJira(payload: unknown): unknown {
   if (!isRecord(payload)) return payload;
@@ -358,16 +363,18 @@ function duplicateMarker(toolName: string, toolInput: unknown, sessionId?: strin
   return undefined;
 }
 
+/** Codex PostToolUse output that swaps the tool result for `text` without marking it an error. */
+function replaceWith(text: string) {
+  return { continue: false, stopReason: "MCP result compacted", reason: text };
+}
+
 function maybeEmitCompacted(event: HookEvent): void {
   const toolName = event.tool_name ?? "";
   if (!toolName.startsWith("mcp__")) return;
 
   const duplicate = duplicateMarker(toolName, event.tool_input, event.session_id);
   if (duplicate !== undefined) {
-    process.stdout.write(JSON.stringify({
-      decision: "block",
-      reason: duplicate,
-    }));
+    process.stdout.write(JSON.stringify(replaceWith(duplicate)));
     return;
   }
 
@@ -381,10 +388,7 @@ function maybeEmitCompacted(event: HookEvent): void {
   const after = compactJson(compacted);
   if (after.length >= before.length) return;
 
-  process.stdout.write(JSON.stringify({
-    decision: "block",
-    reason: after,
-  }));
+  process.stdout.write(JSON.stringify(replaceWith(after)));
 }
 
 let input = "";

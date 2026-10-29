@@ -3,13 +3,11 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
 // Self-contained gate: run only the spec for the feature THIS ticket targets. The other features
-// are separate, intentionally-unsolved tickets — their specs are RED by design, so a whole-suite
+// are intentionally unsolved and out of scope — their specs are RED by design, so a whole-suite
 // run would never pass even after a correct scoped fix. We read the ticket from the in-app TASK.md
-// (written by `npm run variant`) and map it to its feature directory.
+// (written by `npm run task`) and map it to its feature directory.
 const TICKET_TO_FEATURE = {
   'JIRA-0321': 'catalog',
-  'JIRA-0410': 'orders',
-  'JIRA-0455': 'edit-card',
 };
 
 function testMatch() {

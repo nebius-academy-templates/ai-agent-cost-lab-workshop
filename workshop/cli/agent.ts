@@ -1,5 +1,5 @@
 /**
- * Agent selection — single source of truth for which coding agent (claude|codex|cursor) the workshop
+ * Agent selection — single source of truth for which coding agent (claude|codex|cursor|agy) the workshop
  * targets. The choice is picked once (`npm run setup -- <agent>`), persisted to .workshop/active-agent,
  * and read by every proxy:* / hooks:* / workshop:run* command — so no per-command WORKSHOP_AGENT
  * prefix is needed across the two-terminal flow.
@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_lib';
 
-export const AGENT_NAMES = ['claude', 'codex', 'cursor'] as const;
+export const AGENT_NAMES = ['claude', 'codex', 'cursor', 'agy'] as const;
 export type AgentName = (typeof AGENT_NAMES)[number];
 
 function isAgentName(value: string): value is AgentName {
@@ -22,7 +22,7 @@ const STATE_FILE = join(REPO_ROOT, '.workshop', 'active-agent');
 const APP = 'apps/angular-demo';
 
 /**
- * Per-agent MCP/proxy config — the only place the three agents differ for the proxy lever.
+ * Per-agent MCP/proxy config — the only place the agents differ for the proxy lever.
  * Paths are REPO_ROOT-relative. `directSrc: null` means the bloated baseline lives in a git-tracked
  * file (restore via `git checkout`); otherwise it's a workshop template copied over.
  */
@@ -43,19 +43,29 @@ export const AGENTS = {
       indexSrc: 'workshop/proxy/index.codex.ts',
     },
   },
+  // Cursor reads project config from the git root's .cursor/ (not the app folder).
   cursor: {
     proxy: {
-      mcpDest: `${APP}/.cursor/mcp.json`,
+      mcpDest: '.cursor/mcp.json',
       proxySrc: 'workshop/proxy/cursor.proxy.mcp.json',
       directSrc: 'workshop/proxy/cursor.direct.mcp.json',
       indexSrc: 'workshop/proxy/index.codex.ts',
+    },
+  },
+  // Antigravity CLI (Google): workspace MCP config in .agents/.
+  agy: {
+    proxy: {
+      mcpDest: `${APP}/.agents/mcp_config.json`,
+      proxySrc: 'workshop/proxy/agy.proxy.mcp_config.json',
+      directSrc: null,
+      indexSrc: 'workshop/proxy/index.ts',
     },
   },
 } as const satisfies Record<AgentName, unknown>;
 
 /** Probe installed agent binaries in priority order. */
 export function detectAgent(): AgentName {
-  for (const [bin, name] of [['claude', 'claude'], ['codex', 'codex'], ['cursor-agent', 'cursor']] as const) {
+  for (const [bin, name] of [['claude', 'claude'], ['codex', 'codex'], ['agent', 'cursor'], ['agy', 'agy']] as const) {
     try { execFileSync(bin, ['--version'], { stdio: 'ignore' }); return name; } catch { /* not installed */ }
   }
   return 'claude';

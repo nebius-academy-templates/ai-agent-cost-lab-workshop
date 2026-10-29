@@ -1,27 +1,35 @@
 # Codex MCP proxy config.
 # Copy this to apps/angular-demo/.codex/config.toml and run the compact proxy on localhost:9100.
 
+# Workshop model (project config needs a trusted project). Sol 6.1 is priced in e2e/_lib.ts.
+model = "gpt-6.1-sol"
+
 [mcp_servers.jira]
 url = "http://localhost:9100/mcp?target=jira"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+default_tools_approval_mode = "approve"
 
 [mcp_servers.github]
 url = "http://localhost:9100/mcp?target=github"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+default_tools_approval_mode = "approve"
 
 [mcp_servers.confluence]
 url = "http://localhost:9100/mcp?target=confluence"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+default_tools_approval_mode = "approve"
 
 [mcp_servers.sentry]
 url = "http://localhost:9100/mcp?target=sentry"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+default_tools_approval_mode = "approve"
 
 [mcp_servers.testrail]
 url = "http://localhost:9100/mcp?target=testrail"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+default_tools_approval_mode = "approve"

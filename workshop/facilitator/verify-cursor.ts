@@ -1,7 +1,7 @@
 /**
  * workshop:verify-cursor — smoke-check that Cursor workshop config scripts apply correctly.
  *
- * Does NOT run cursor-agent. Verifies filesystem state after each npm script.
+ * Does NOT run the Cursor CLI (`agent`). Verifies filesystem state after each npm script.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
@@ -9,11 +9,12 @@ import { join } from "node:path";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const APP = join(REPO_ROOT, "apps", "angular-demo");
-const MCP = join(APP, ".cursor", "mcp.json");
-const CLI = join(APP, ".cursor", "cli.json");
-const PERMS = join(APP, ".cursor", "permissions.json");
-const HOOKS = join(APP, ".cursor", "hooks.json");
-const HOOK_TS = join(APP, ".cursor", "hooks", "compact-mcp.ts");
+// Cursor reads project config from the git root's .cursor/, not the app folder.
+const MCP = join(REPO_ROOT, ".cursor", "mcp.json");
+const CLI = join(REPO_ROOT, ".cursor", "cli.json");
+const PERMS = join(REPO_ROOT, ".cursor", "permissions.json");
+const HOOKS = join(REPO_ROOT, ".cursor", "hooks.json");
+const HOOK_TS = join(REPO_ROOT, ".cursor", "hooks", "compact-mcp.ts");
 const AGENTS = join(APP, "AGENTS.md");
 
 function sh(cmd: string): void {
@@ -46,7 +47,7 @@ function main(): void {
   assert(read(CLI).includes("Mcp(jira:jira_get_issue)"), "cli.json allowlists MCP tools");
   assert(read(PERMS).includes("jira:jira_get_issue"), "permissions.json mcpAllowlist present");
   assert(read(PERMS).includes("npx:tsx .cursor/hooks/compact-mcp.ts"), "permissions.json allowlists hook command");
-  assert(!read(HOOKS).includes("afterMCPExecution"), "hooks.json has no afterMCPExecution (baseline)");
+  assert(!read(HOOKS).includes("postToolUse"), "hooks.json has no postToolUse (baseline)");
 
   // ── 2. AGENTS.md hygiene ──
   console.log("\n━━━ 2. agents:solution (Run 2 hygiene) ━━━");
@@ -67,7 +68,7 @@ function main(): void {
   sh("WORKSHOP_AGENT=cursor npm run hooks:solution");
   assert(read(MCP).includes(":9001"), ".cursor/mcp.json → direct for hooks path");
   assert(!read(MCP).includes("9100"), ".cursor/mcp.json has no proxy port (hooks lever)");
-  assert(read(HOOKS).includes("afterMCPExecution"), "hooks.json registers afterMCPExecution");
+  assert(read(HOOKS).includes("postToolUse"), "hooks.json registers postToolUse");
   assert(read(HOOK_TS).includes("compactJira"), "compact-mcp.ts is the reference solution");
 
   // ── Cleanup ──

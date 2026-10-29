@@ -31,7 +31,7 @@ fi
 echo ""
 echo "=== Cursor Agent ==="
 CURSOR_MCP="${HOME}/.cursor/mcp.json"
-if command -v cursor-agent &>/dev/null; then
+if command -v agent &>/dev/null; then
   mkdir -p "$(dirname "${CURSOR_MCP}")"
   if [ -f "${CURSOR_MCP}" ]; then
     # Merge our servers into existing config
@@ -58,13 +58,13 @@ print('  Created ${CURSOR_MCP}')
   fi
   echo "  Cursor MCP config ready"
 
-  # Project-level MCP for the workshop app (cli.json + permissions.json live in git)
-  PROJECT_MCP="$(cd "$(dirname "$0")/../.." && pwd)/apps/angular-demo/.cursor/mcp.json"
+  # Project-level MCP — Cursor reads .cursor/ at the git root (cli.json + permissions.json live in git)
+  PROJECT_MCP="$(cd "$(dirname "$0")/../.." && pwd)/.cursor/mcp.json"
   mkdir -p "$(dirname "${PROJECT_MCP}")"
   cp "$(cd "$(dirname "$0")/.." && pwd)/proxy/cursor.direct.mcp.json" "${PROJECT_MCP}"
   echo "  Project MCP → ${PROJECT_MCP}"
 else
-  echo "  cursor-agent not found — skip"
+  echo "  agent (Cursor CLI) not found — skip"
 fi
 
 echo ""
