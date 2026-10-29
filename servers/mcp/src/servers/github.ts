@@ -7,6 +7,26 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { jsonContent, FILLER, metadataBloat } from '../bloat.js';
 import { readGate } from '../gate.js';
+import { rng, paragraph, isoAt, pick } from '../noise.js';
+
+// ── Real-API volume the agent never needs (see noise.ts) ────────────────────────────────────────
+function noiseStatusHistory(ref: string) {
+  const next = rng(`status-history-${ref}`);
+  return Array.from({ length: 26 }, (_, i) => ({
+    context: pick(next, ['ci/local-tests', 'ci/typecheck', 'ci/lint', 'testrail/acceptance', 'ci/build', 'security/sast']),
+    state: pick(next, ['success', 'success', 'failure', 'pending']), description: `superseded run #${400 + i}`,
+    created_at: isoAt(i * 6), target_url: `https://ci.platacard.local/runs/${400 + i}`,
+  }));
+}
+
+function noiseCheckRuns(ref: string) {
+  const next = rng(`check-runs-${ref}`);
+  return Array.from({ length: 10 }, (_, i) => ({
+    id: 880000 + i, name: pick(next, ['build', 'unit', 'e2e-smoke', 'bundle-size', 'sast', 'license-scan']), status: 'completed',
+    conclusion: pick(next, ['success', 'neutral', 'skipped']), started_at: isoAt(i * 2), completed_at: isoAt(i * 2 + 1),
+    output: { title: `Run ${i + 1}`, summary: paragraph(next, 2), text: Array.from({ length: 12 }, (_, j) => `[${isoAt(i * 2).slice(11, 19)}] step ${j + 1}: ${paragraph(next, 1)}`).join('\n') },
+  }));
+}
 
 function commitStatus(ref: string) {
   const gate = readGate();
@@ -29,6 +49,8 @@ function commitStatus(ref: string) {
     statuses,
     repository: { full_name: 'platacard/plata-burrito-web', default_branch: 'main', private: true, metadata: metadataBloat('repo') },
     commit_url: `https://api.github.com/repos/platacard/plata-burrito-web/commits/${ref}`,
+    status_history: noiseStatusHistory(ref),
+    check_runs: noiseCheckRuns(ref),
     _note: 'Mergeable only when state === "success" (local tests + TestRail acceptance both green).',
   };
 }

@@ -12,9 +12,9 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   runCodex, printDelta, printCompare, resetScenario,
-  activeScenario, gitUser, type RunResult,
+  SCENARIO, gitUser, type RunResult,
 } from "./_lib.js";
-import { sendWorkshopMetric } from "./grafana.js";
+import { recordWorkshopMetric } from "./metrics.js";
 
 const REPO_ROOT = join(import.meta.dirname, "..");
 const HOOKS_JSON = join(REPO_ROOT, "apps", "angular-demo", ".codex", "hooks.json");
@@ -58,11 +58,11 @@ function enableHooks() {
   console.log("  ✅ Hooks enabled (compaction solution wired)");
 }
 
-// ── grafana push ──────────────────────────────────────────────────────
+// ── metrics record ────────────────────────────────────────────────────
 
-function pushMetric(run: number, r: RunResult): void {
-  sendWorkshopMetric({
-    run, agent: AGENT, user: gitUser(), task: activeScenario(),
+function recordMetric(run: number, r: RunResult): void {
+  recordWorkshopMetric({
+    run, agent: AGENT, user: gitUser(), task: SCENARIO,
     inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens,
     cacheReadTokens: r.usage.cacheReadTokens, cacheWriteTokens: r.usage.cacheCreationTokens,
     totalTokens: r.usage.totalTokens, totalCost: r.usage.totalCost, gatePassed: r.gatePassed,
@@ -96,7 +96,7 @@ async function main() {
     process.exit(1);
   }
   printDelta("Run A (no hooks)", runA.usage);
-  pushMetric(1, runA);
+  recordMetric(1, runA);
 
   // ── Run B: With hooks ───────────────────────────────────────────────
   console.log("\n━━━ Run B: WITH hooks (compact MCP in context) ━━━");
@@ -109,7 +109,7 @@ async function main() {
     process.exit(1);
   }
   printDelta("Run B (hooks)", runB.usage);
-  pushMetric(2, runB);
+  recordMetric(2, runB);
 
   // ── Cleanup: leave hooks disabled (clean baseline) ──────────────────
   disableHooks();

@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .angular/
+.claude/
 *.log
 *.tsbuildinfo
 .DS_Store
@@ -9,7 +10,7 @@ coverage/
 # Workshop local outputs (gate results, token snapshots)
 .workshop/
 
-# Local measurement records — what we send to Grafana, for cross-checking
+# Local measurement records
 .measurements/
 
 # Local credentials / config

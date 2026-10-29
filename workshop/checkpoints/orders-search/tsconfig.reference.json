@@ -1,8 +1,0 @@
-{
-  "extends": "../../../apps/angular-demo/tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist/out-tsc/reference",
-    "types": ["jest", "node"]
-  },
-  "include": ["*.reference.spec.ts", "../../../apps/angular-demo/src/**/*.ts"]
-}

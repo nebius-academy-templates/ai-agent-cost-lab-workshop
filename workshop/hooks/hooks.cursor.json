@@ -1,9 +1,10 @@
 {
   "version": 1,
   "hooks": {
-    "afterMCPExecution": [
+    "postToolUse": [
       {
         "command": "npx tsx .cursor/hooks/compact-mcp.ts",
+        "matcher": "MCP:.*",
         "timeout": 30
       }
     ]

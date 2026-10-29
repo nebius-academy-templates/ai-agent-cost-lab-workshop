@@ -11,14 +11,14 @@ Start with the reference guides. When you're ready to experiment, follow the san
 
 ## Find the reference material
 
-The reference files are in `docs/`.
+The reference files are in `docs/eng/`.
 
 | File | What you'll find |
 | --- | --- |
 | [Optimization catalog](docs/eng/optimization-catalog.md) | Start here: an overview of the optimization methods, their two layers, and how they map to the sandbox runs |
 | [Hygiene methods](docs/eng/hygiene-methods.md) | Ten levers covering model choice, reasoning effort, context scope, file hints, output, prompts, caching, configuration, subagents, and skills |
 | [Tool-response methods](docs/eng/tool-layer-matrix.md) | Seven methods for reducing tool responses, with agent support, tradeoffs, and measured or estimated effects |
-| [MCP proxy implementation guide](eng/docs/mcp-proxy-methods.md) | How to implement the tool-response methods in the proxy, including commands, file locations, and reference code |
+| [MCP proxy implementation guide](docs/eng/mcp-proxy-methods.md) | How to implement the tool-response methods in the proxy, including commands, file locations, and reference code |
 | [Agent hooks implementation guide](docs/eng/hooks-methods.md) | How to implement the methods with agent hooks, including configuration, output formats, and agent-specific limitations |
 | [October 2026 measurements](docs/eng/measurements-2026-10.md) | The measured results, test setup, token and cost breakdowns, and limitations |
 
@@ -28,8 +28,8 @@ The guides distinguish **measured results**, **calculations**, and **estimates**
 
 | Layer | What you change | Where to start |
 | --- | --- | --- |
-| Hygiene | Agent instructions, model, reasoning effort, prompt, and configuration | `docs/hygiene-methods.md` |
-| Tool responses | The information returned by MCP tools before it enters the model's context | `docs/tool-layer-matrix.md` |
+| Hygiene | Agent instructions, model, reasoning effort, prompt, and configuration | `docs/eng/hygiene-methods.md` |
+| Tool responses | The information returned by MCP tools before it enters the model's context | `docs/eng/tool-layer-matrix.md` |
 
 For tool responses, the updated catalog covers:
 
@@ -74,7 +74,7 @@ Before starting, clone the repository and make sure you have:
 - Node.js ≥ 20.11
 - npm
 - Docker
-- One installed and authenticated coding agent: `claude`, `codex`, or `cursor-agent`
+- One installed and authenticated coding agent: `claude` (Claude Code), `codex` (Codex CLI), `agent` (Cursor CLI), or `agy` (Antigravity CLI)
 
 ### Set up the environment
 
@@ -94,6 +94,7 @@ To choose an agent explicitly, run one of these commands:
 npm run setup -- claude
 npm run setup -- codex
 npm run setup -- cursor
+npm run setup -- agy
 ```
 
 The selected agent is saved to `.workshop/active-agent`. Subsequent `proxy:*`, `hooks:*`, and `workshop:run*` commands use it automatically.
@@ -104,34 +105,26 @@ To switch agents:
 npm run setup -- <agent>
 ```
 
-Supported values: `claude`, `codex`, and `cursor`.
+Supported values: `claude`, `codex`, `cursor`, and `agy`.
 
-### Choose a bug variant
+### Get the task
 
-Use the same variant across your comparison runs.
+The sandbox has one task, the same one shown in the masterclass:
 
-| Variant | Page | Ticket | Feature |
-| --- | --- | --- | --- |
-| 1 | `/catalog` | `JIRA-0321` | Data grid: URL sync, cache, SWR, cancellation |
-| 2 | `/orders` | `JIRA-0410` | Data grid: URL sync, debounce, cache, SWR |
-| 3 | `/edit/:id` | `JIRA-0455` | Forms: validation, 400-mapping, XSS, dirty state |
+| Page | Ticket | Feature |
+| --- | --- | --- |
+| `/catalog` | `JIRA-0321` | Data grid: URL sync, cache, SWR, cancellation |
 
-Run the command for your chosen variant:
+Write the task into the app:
 
 ```bash
-npm run variant -- 1
-# or
-npm run variant -- 2
-# or
-npm run variant -- 3
+npm run task
 ```
 
-This writes `TASK.md` and sets the agent's scenario.
-
-You can also select a variant and agent together:
+This copies `TASK.md` into `apps/angular-demo/`. To switch the agent at the same time:
 
 ```bash
-npm run variant -- 2 claude
+npm run task -- codex
 ```
 
 ## Measure a baseline and compare optimizations
@@ -191,7 +184,7 @@ For Cursor, use the dashboard link and printed `runStart` time to find the match
 
 ### Run 2: Try hygiene optimizations
 
-Open `docs/hygiene-methods.md` and choose the levers you want to test.
+Open `docs/eng/hygiene-methods.md` and choose the levers you want to test.
 
 The agent instruction file is:
 
@@ -227,11 +220,11 @@ Restore the original instructions so this run measures the tool layer independen
 npm run agents:reset
 ```
 
-Choose a method from `docs/tool-layer-matrix.md`, then implement it through the proxy or hooks.
+Choose a method from `docs/eng/tool-layer-matrix.md`, then implement it through the proxy or hooks.
 
 #### Option A: MCP proxy
 
-Open `docs/mcp-proxy-methods.md`.
+Open `docs/eng/mcp-proxy-methods.md`.
 
 Set up the proxy:
 
@@ -266,7 +259,9 @@ npm run proxy:reset     # Restore direct connections and the proxy scaffold
 
 #### Option B: Agent hooks
 
-Open `docs/hooks-methods.md` for your agent's file locations and configuration requirements.
+Open `docs/eng/hooks-methods.md` for your agent's file locations and configuration requirements.
+
+Reference hooks exist for Claude Code, Codex, and Cursor. Antigravity has no reference hook; use the proxy.
 
 Install the passthrough scaffold:
 
@@ -306,17 +301,18 @@ Results are appended to:
 .measurements/metrics.jsonl
 ```
 
-Use `docs/measurements-2026-10.md` to understand the reference experiment and compare:
+Each record contains:
 
 - Whether the solution passed the quality gate
+- Tokens by type: uncached input, output, cache reads, and cache writes
 - Total tokens
 - Cost, where available
-- MCP output size
-- Run time
 
-The reference experiment used one attempt per configuration. Differences below approximately 20% may be noise. Its mock responses were deliberately enlarged, so the results depend on how much MCP output enters the context.
+Compare your records with the reference experiment in `docs/eng/measurements-2026-10.md`.
 
-Fewer tokens can still produce a higher cost. The measurements guide includes examples and separates cached input, uncached input, and output.
+The reference experiment reports medians of 3–5 attempts per configuration. Single runs of the same configuration varied by up to 2× in tokens, so compare medians of several runs. Its mock responses were deliberately enlarged, so the results depend on how much MCP output enters the context.
+
+A token reduction and a cost reduction can differ widely. The measurements guide includes examples and separates cached input, uncached input, and output.
 
 ## Keep the agent focused on the product task
 
@@ -326,7 +322,7 @@ Run the coding agent from:
 apps/angular-demo/
 ```
 
-The agent should use `TASK.md` and the product files to fix the feature. Keep workshop infrastructure and reference tests outside its task scope, including `workshop/`, `grader/`, `e2e/`, and `servers/`.
+The agent should use `TASK.md` and the product files to fix the feature. Keep workshop infrastructure and reference tests outside its task scope, including `workshop/` (the hidden reference tests are in `workshop/checkpoints/`), `e2e/`, and `servers/`.
 
 These files live in the same repository, so the working directory alone does not prevent access. The measurements guide documents how reading hidden reference tests affected one baseline.
 

@@ -4,22 +4,22 @@
  * Thesis: Optimized AGENTS.md reduces token consumption vs bloated AGENTS.md.
  * Reads bloated from apps/angular-demo/AGENTS.md, uses hand-crafted optimized version.
  */
-import { resetScenario, writeText, readText, backup, restore, runClaude, printDelta, printCompare, activeScenario, gitUser, type RunResult } from "./_lib.js";
-import { sendWorkshopMetric } from "./grafana.js";
+import { resetScenario, writeText, readText, backup, restore, runClaude, printDelta, printCompare, SCENARIO, gitUser, type RunResult } from "./_lib.js";
+import { recordWorkshopMetric } from "./metrics.js";
 
 const AGENT = "claude";
 
 const OPTIMIZED_AGENTS = `# Agent Instructions — Plata Burrito CRM
 Angular app. Fix bugs per TASK.md. Read TASK.md for ticket number → pull from jira MCP.
-Edit only src/app/ matching your variant. Report done when the fix is complete.
+Edit only the src/app/ feature named in the ticket. Report done when the fix is complete.
 Keep API contracts, no new dependencies.`;
 
 const TASK_PROMPT = `Read TASK.md and apply all fixes described in the acceptance criteria. Do not change the public API contract or add runtime dependencies. Report done when the fix is complete.`;
 
-/** Push one run to Grafana (bloated → run 1, optimized → run 2), same shape as workshop:run*. */
-function pushMetric(run: number, r: RunResult): void {
-  sendWorkshopMetric({
-    run, agent: AGENT, user: gitUser(), task: activeScenario(),
+/** Record one run locally (bloated → run 1, optimized → run 2), same shape as workshop:run*. */
+function recordMetric(run: number, r: RunResult): void {
+  recordWorkshopMetric({
+    run, agent: AGENT, user: gitUser(), task: SCENARIO,
     inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens,
     cacheReadTokens: r.usage.cacheReadTokens, cacheWriteTokens: r.usage.cacheCreationTokens,
     totalTokens: r.usage.totalTokens, totalCost: r.usage.totalCost, gatePassed: r.gatePassed,
@@ -41,7 +41,7 @@ async function main() {
   console.log(`  AGENTS.md: ${BLOATED_AGENTS.length} chars`);
   const runA = await runClaude(TASK_PROMPT);
   printDelta("Run A (bloated)", runA.usage);
-  pushMetric(1, runA);
+  recordMetric(1, runA);
   if (!runA.gatePassed) { console.error("❌ Gate FAILED Run A"); restore(agPath); process.exit(1); }
 
   // Run B: Optimized
@@ -51,7 +51,7 @@ async function main() {
   console.log(`  AGENTS.md: ${OPTIMIZED_AGENTS.length} chars`);
   const runB = await runClaude(TASK_PROMPT);
   printDelta("Run B (optimized)", runB.usage);
-  pushMetric(2, runB);
+  recordMetric(2, runB);
   if (!runB.gatePassed) { console.error("❌ Gate FAILED Run B"); restore(agPath); process.exit(1); }
   restore(agPath);
 

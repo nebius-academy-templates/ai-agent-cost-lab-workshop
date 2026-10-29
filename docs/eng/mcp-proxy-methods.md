@@ -108,20 +108,22 @@ less than the reference hook (90%): the proxy removes known metadata and noise f
 changelog, framework stack frames) but keeps comments and builds no digests. Table:
 [tool-layer-matrix.md](./tool-layer-matrix.md#reference-measurement-on-the-workshop-mocks).
 
-**Measured runs 2026-10-07** (Run 3 with the proxy against Run 1; report:
+**Measured runs 2026-10-27** (Run 3 with the proxy against Run 1; medians of 5 attempts for
+Claude Code, 3 passing attempts for Codex and Cursor; report:
 [measurements-2026-10.md](./measurements-2026-10.md)):
 
 | Agent | MCP output, K characters | Tokens | Cost |
 |---|---|---|---|
-| Claude Code (Sonnet 5.5) | 108 → 49 | **−54%** | **−36%** |
-| Cursor (GLM 5.2 High) | 154 → 37 | −12% | no price |
-| Codex (Sol 6.1) | 142 → 53 | −5% | +12% |
-| agy (Gemini 3.8 Flash) | — | −33% ⚠️ | −9% ⚠️ |
+| Claude Code (Sonnet 5.5) | 108 → 48 | −23% | **−35%** |
+| Cursor (GLM 5.2 High) | 142 → 35 | **−60%** | no price |
+| Codex (Sol 6.1) | 109 → 55 | −26% | −26% |
+| agy (Gemini 3.8 Flash), 2026-10-07 | — | −33% ⚠️ | −9% ⚠️ |
 
 - The proxy is the only Run 3 lever that worked for all four agents.
-- Where a hook works (Claude Code, Cursor), the hook saves more.
-- Codex with the proxy ran longer (2 min 53 s vs 2 min 18 s) and cost more; with one attempt this
-  may be noise.
+- Where a hook works (Claude Code, Cursor), it cuts tokens by the same amount as the proxy. For
+  Claude Code the hook is cheaper (cost −46%).
+- Codex: the proxy cut uncached input from 47K to 31K tokens, so cost fell as much as tokens. The
+  single run of 2026-10-07 showed +12% cost; it did not repeat.
 - ⚠️ agy's Run 1 baseline is inflated: it read the hidden tests.
 
 ---

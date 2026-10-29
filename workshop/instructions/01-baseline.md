@@ -9,14 +9,14 @@ Do **not** optimize anything yet — just solve it and measure.
 npm run workshop:run1
 ```
 
-The runner resets your variant to the buggy baseline, prints the exact agent command, then waits.
+The runner resets the catalog feature to the buggy baseline, prints the exact agent command, then waits.
 While it waits, in a **second terminal**:
 
 1. Open your agent **FRESH** — config + MCP warm-up only happen on startup and must land *inside* the
    measured window (`/clear` is not enough). Use the command the runner printed:
    ```bash
    cd apps/angular-demo
-   claude --session-id <id>      # ← the id from workshop:run1   (or codex / cursor-agent)
+   claude --session-id <id>      # ← the id from workshop:run1   (or codex / agent / agy)
    ```
 2. Give it a **simple, unoptimized** prompt, e.g.:
    > Read TASK.md and fix the task. It references a JIRA ticket.
@@ -40,7 +40,7 @@ From the output, write down:
 > — it means a stable prompt prefix was reused. Watch how it changes when you optimize.
 
 > Agent notes — **Claude**: launch with the printed `--session-id <id>`. **Codex**: launch `codex`
-> from `apps/angular-demo/`. **Cursor**: launch `cursor-agent` from `apps/angular-demo/`; record
+> from `apps/angular-demo/`. **Cursor**: launch `agent` from `apps/angular-demo/`; record
 > tokens from [cursor.com/dashboard/usage](https://cursor.com/dashboard/usage) for the printed
 > `runStart` time (runner does not auto-measure Cursor tokens).
 

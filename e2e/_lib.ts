@@ -15,14 +15,8 @@ import { homedir } from "node:os";
 
 const REPO_ROOT = join(import.meta.dirname, "..");
 
-/** Active workshop scenario (from .workshop/active-scenario); defaults to catalog-pagination. */
-export function activeScenario(): string {
-  try {
-    const name = readFileSync(join(REPO_ROOT, ".workshop", "active-scenario"), "utf8").trim();
-    if (name) return name;
-  } catch { /* fall through */ }
-  return "catalog-pagination";
-}
+/** The workshop's only scenario. */
+export const SCENARIO = "catalog-pagination";
 
 /** Git user.name for metric attribution, or "unknown". */
 export function gitUser(): string {
@@ -217,7 +211,7 @@ export function runClaude(prompt: string, opts: {
 
 // ── codex usage + pricing ───────────────────────────────────────────────
 
-/** Codex model from ~/.codex/config.toml top-level `model = "..."` (no per-event model field); default gpt-5.5. */
+/** Fallback Codex model from ~/.codex/config.toml top-level `model = "..."`; default is the workshop model. */
 function codexModel(): string {
   try {
     for (const line of readFileSync(join(homedir(), ".codex", "config.toml"), "utf8").split(/\r?\n/)) {
@@ -227,11 +221,18 @@ function codexModel(): string {
       if (g) return g;
     }
   } catch { /* no config */ }
-  return "gpt-5.5";
+  return "gpt-6.1-sol";
 }
 
-/** OpenAI list price for codex models, $/MTok (standard tier — what interactive codex bills). */
+/**
+ * OpenAI API list price, $/MTok, standard tier, short context (developers.openai.com/api/docs/pricing,
+ * October 2026). With a ChatGPT login Codex spends plan quota instead of dollars — this is the
+ * API-equivalent cost, so runs stay comparable across agents.
+ */
 const CODEX_PRICE: Record<string, { in: number; cachedIn: number; out: number }> = {
+  "gpt-6.1-sol": { in: 2, cachedIn: 0.1, out: 10 },
+  "gpt-6-sol": { in: 2, cachedIn: 0.2, out: 10 },
+  "gpt-6-astra": { in: 10, cachedIn: 1, out: 50 },
   "gpt-5.5": { in: 5, cachedIn: 0.5, out: 30 },
 };
 
@@ -265,11 +266,23 @@ function codexCost(model: string, u: CodexUsage): number {
  * Token usage + cost for ONE interactive Codex session. Codex writes a session rollout to
  *   ~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<uuid>.jsonl
  * (the `-c log_dir=` flag does NOT capture usage). We pick the newest rollout modified since the
- * run started — time-window isolation, like the Claude fallback (Codex has no pre-set session id).
+ * run started whose `session_meta.cwd` is the app dir — other Codex sessions running on the machine
+ * at the same time (desktop app, other repos) must not be picked up.
  * Usage lives in `event_msg`/`token_count` events; `total_token_usage` is CUMULATIVE, so we take
  * the LAST one (summing would multi-count). Tokens split like Claude's: inputTokens = non-cached.
  */
-export function parseCodexSession(sinceMs: number): Snapshot {
+/** cwd recorded in the rollout's first `session_meta` line, or undefined if unreadable. */
+function codexSessionCwd(file: string): string | undefined {
+  try {
+    const first = readFileSync(file, "utf8").split("\n", 1)[0] ?? "";
+    const e = JSON.parse(first);
+    return e?.type === "session_meta" ? e?.payload?.cwd : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function parseCodexSession(appDir: string, sinceMs: number): Snapshot {
   const zero: Snapshot = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 0, totalCost: 0 };
   const dir = join(homedir(), ".codex", "sessions");
   if (!existsSync(dir)) {
@@ -287,21 +300,25 @@ export function parseCodexSession(sinceMs: number): Snapshot {
       let m: number;
       try { m = statSync(full).mtimeMs; } catch { continue; }
       if (m < sinceMs) continue;
+      if (codexSessionCwd(full) !== appDir) continue;
       if (!newest || m > newest.m) newest = { file: full, m };
     }
   } catch { /* unreadable sessions dir */ }
 
   if (!newest) {
-    console.log(`  ⚠️  No codex session found since run start — did you start codex fresh after Run began?`);
+    console.log(`  ⚠️  No codex session in ${appDir} since run start — did you start codex fresh from apps/angular-demo after Run began?`);
     return zero;
   }
 
-  // last token_count event carries the cumulative total_token_usage for the whole session
+  // last token_count event carries the cumulative total_token_usage for the whole session;
+  // turn_context records the model the session actually ran (project config may override the user's)
   let tu: CodexUsage | undefined;
+  let model = codexModel();
   try {
     for (const line of readFileSync(newest.file, "utf8").trim().split("\n")) {
       try {
         const e = JSON.parse(line);
+        if (e?.type === "turn_context" && typeof e?.payload?.model === "string") model = e.payload.model;
         if (e?.type === "event_msg" && e?.payload?.type === "token_count") {
           const t = e.payload?.info?.total_token_usage;
           if (t) tu = t;
@@ -322,7 +339,7 @@ export function parseCodexSession(sinceMs: number): Snapshot {
     cacheReadTokens: cached,
     cacheCreationTokens: 0,
     totalTokens: nonCached + output + cached,
-    totalCost: codexCost(codexModel(), tu),
+    totalCost: codexCost(model, tu),
   };
 }
 
@@ -337,13 +354,20 @@ export function parseCodexSession(sinceMs: number): Snapshot {
  * Cost is computed from per-model token usage × MODEL_PRICE (the transcript has no cost field).
  */
 
-/** Anthropic list price, $/MTok input & output. Cache: read = 0.1×in, write-5m = 1.25×in, write-1h = 2×in. */
-const MODEL_PRICE: Record<string, { in: number; out: number }> = {
-  "claude-opus-4-8": { in: 5, out: 25 },
-  "claude-opus-4-7": { in: 5, out: 25 },
-  "claude-opus-4-6": { in: 5, out: 25 },
-  "claude-sonnet-4-6": { in: 3, out: 15 },
-  "claude-haiku-4-5": { in: 1, out: 5 },
+/**
+ * Anthropic list price, $/MTok: input, output, cache read. Cache read is per model (0.05× input on
+ * Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1, 0.1× elsewhere); cache write is 1.25× input (5m TTL)
+ * or 2× (1h TTL). Source: platform.claude.com/docs/en/about-claude/pricing, October 2026.
+ */
+const MODEL_PRICE: Record<string, { in: number; out: number; cacheRead: number }> = {
+  "claude-fable-5-1": { in: 10, out: 50, cacheRead: 0.25 },
+  "claude-opus-5-5": { in: 4, out: 20, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { in: 2, out: 10, cacheRead: 0.1 },
+  "claude-opus-4-8": { in: 5, out: 25, cacheRead: 0.5 },
+  "claude-opus-4-7": { in: 5, out: 25, cacheRead: 0.5 },
+  "claude-opus-4-6": { in: 5, out: 25, cacheRead: 0.5 },
+  "claude-sonnet-4-6": { in: 3, out: 15, cacheRead: 0.3 },
+  "claude-haiku-4-5": { in: 1, out: 5, cacheRead: 0.1 },
 };
 
 interface ClaudeUsage {
@@ -371,7 +395,7 @@ function claudeMsgCost(model: string, u: ClaudeUsage): number {
   const cacheWriteCost = (eph5m + eph1h) > 0
     ? eph5m * 1.25 * p.in + eph1h * 2 * p.in
     : (u.cache_creation_input_tokens ?? 0) * 1.25 * p.in; // assume 5m TTL when no breakdown
-  return (input * p.in + output * p.out + cacheRead * 0.1 * p.in + cacheWriteCost) / 1_000_000;
+  return (input * p.in + output * p.out + cacheRead * p.cacheRead + cacheWriteCost) / 1_000_000;
 }
 
 export function parseClaudeSession(appDir: string, sessionId: string, sinceMs: number): Snapshot {
@@ -398,6 +422,9 @@ export function parseClaudeSession(appDir: string, sessionId: string, sinceMs: n
   }
 
   let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheCreationTokens = 0, totalCost = 0;
+  // Claude Code writes one transcript line per content block (thinking, text, tool_use), and every
+  // line repeats the whole response's usage — count each API response once.
+  const seen = new Set<string>();
   try {
     for (const line of readFileSync(file, "utf8").trim().split("\n")) {
       try {
@@ -405,6 +432,9 @@ export function parseClaudeSession(appDir: string, sessionId: string, sinceMs: n
         if (e?.type !== "assistant") continue;
         const u = e?.message?.usage as ClaudeUsage | undefined;
         if (!u) continue;
+        const responseKey = `${e?.message?.id}|${e?.requestId}`;
+        if (seen.has(responseKey)) continue;
+        seen.add(responseKey);
         inputTokens += u.input_tokens ?? 0;
         outputTokens += u.output_tokens ?? 0;
         cacheReadTokens += u.cache_read_input_tokens ?? 0;
@@ -456,22 +486,22 @@ export function runCodex(prompt: string): Promise<RunResult> {
 }
 
 /**
- * Run `cursor-agent -p --output-format stream-json` and parse usage from result event.
+ * Run `agent -p --output-format stream-json` (Cursor CLI) and parse usage from result event.
  */
 export function runCursor(prompt: string): Promise<RunResult> {
-  console.log(`\n  → cursor-agent -p (this may take 1–2 minutes)…\n`);
+  console.log(`\n  → agent -p (Cursor, this may take 1–2 minutes)…\n`);
   return new Promise((resolve) => {
-    const child = spawn("cursor-agent", ["-p", "--output-format", "stream-json", prompt], {
+    const child = spawn("agent", ["-p", "--output-format", "stream-json", prompt], {
       cwd: join(REPO_ROOT, "apps", "angular-demo"), stdio: ["ignore", "pipe", "pipe"], env: { ...process.env },
     });
     let stdout = "";
     child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); process.stdout.write(`  ${chunk.toString().replace(/\n/g, "\n  ")}`); });
     child.on("error", (err) => {
-      console.error(`  ✗ cursor-agent failed: ${err.message}`);
+      console.error(`  ✗ agent (Cursor) failed: ${err.message}`);
       resolve({ usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 0, totalCost: 0 }, gatePassed: false });
     });
     child.on("close", (code) => {
-      if (code !== 0) console.error(`\n  ✗ cursor-agent exited with code ${code}`);
+      if (code !== 0) console.error(`\n  ✗ agent (Cursor) exited with code ${code}`);
       let ti = 0, to = 0, tcr = 0, tcw = 0;
       try { for (const line of stdout.trim().split("\n")) { try { const e = JSON.parse(line); if (e?.type === "result" && e?.usage) { ti += e.usage.inputTokens ?? 0; to += e.usage.outputTokens ?? 0; tcr += e.usage.cacheReadTokens ?? 0; tcw += e.usage.cacheWriteTokens ?? 0; } } catch {} } } catch {}
       const total = ti + to + tcr + tcw;

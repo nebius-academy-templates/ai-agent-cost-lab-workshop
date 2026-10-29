@@ -1,6 +1,6 @@
 /** Scenario registry: where each scenario's baseline, working copy, and gate live. */
 import { resolve } from 'node:path';
-import { rmSync, mkdirSync, cpSync, existsSync, readFileSync } from 'node:fs';
+import { rmSync, mkdirSync, cpSync, existsSync } from 'node:fs';
 import { REPO_ROOT } from './_lib';
 
 export interface ScenarioDef {
@@ -29,40 +29,12 @@ export const SCENARIOS: Record<string, ScenarioDef> = {
     referenceJestConfig: resolve(REPO_ROOT, 'workshop/checkpoints/catalog-pagination/jest.reference.config.cjs'),
     lintTarget: 'apps/angular-demo/src',
   },
-  'orders-search': {
-    name: 'orders-search',
-    baselineDir: resolve(REPO_ROOT, 'workshop/scenarios/orders-search/baseline'),
-    workingDir: resolve(REPO_ROOT, 'apps/angular-demo/src/app/orders'),
-    taskFile: resolve(REPO_ROOT, 'workshop/scenarios/orders-search/task.json'),
-    tsconfig: resolve(REPO_ROOT, 'apps/angular-demo/tsconfig.app.json'),
-    referenceJestConfig: resolve(REPO_ROOT, 'workshop/checkpoints/orders-search/jest.reference.config.cjs'),
-    lintTarget: 'apps/angular-demo/src',
-  },
-  'editcard-validation': {
-    name: 'editcard-validation',
-    baselineDir: resolve(REPO_ROOT, 'workshop/scenarios/editcard-validation/baseline'),
-    workingDir: resolve(REPO_ROOT, 'apps/angular-demo/src/app/edit-card'),
-    taskFile: resolve(REPO_ROOT, 'workshop/scenarios/editcard-validation/task.json'),
-    tsconfig: resolve(REPO_ROOT, 'apps/angular-demo/tsconfig.app.json'),
-    referenceJestConfig: resolve(REPO_ROOT, 'workshop/checkpoints/editcard-validation/jest.reference.config.cjs'),
-    lintTarget: 'apps/angular-demo/src',
-  },
 };
 
 export const DEFAULT_SCENARIO = 'catalog-pagination';
 
-/** The variant the participant selected with `npm run variant`, or the default. */
-function activeScenario(): string {
-  const pointer = resolve(REPO_ROOT, '.workshop/active-scenario');
-  if (existsSync(pointer)) {
-    const name = readFileSync(pointer, 'utf8').trim();
-    if (name) return name;
-  }
-  return DEFAULT_SCENARIO;
-}
-
 export function resolveScenario(name: string | undefined): ScenarioDef {
-  const key = name ?? activeScenario();
+  const key = name ?? DEFAULT_SCENARIO;
   const scenario = SCENARIOS[key];
   if (!scenario) {
     const known = Object.keys(SCENARIOS).join(', ');

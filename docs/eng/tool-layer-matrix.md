@@ -17,8 +17,9 @@ can live at one or more levels:
 
 ## What changed since July 2026
 
-- **Measured on four agents (2026-10-07).** The reference hook cut a whole run's tokens by 60%
-  (Claude Code) and 70% (Cursor). The reference proxy cut them by 5–54%. See
+- **Measured on three agents (2026-10-27, 3–5 attempts per cell).** The reference hook and the
+  reference proxy cut a whole run's median tokens by about the same amount: 22–23% for Claude Code,
+  60% for Cursor. For Claude Code the hook is cheaper: cost −46% vs −35%. See
   [Effect on a whole run](#effect-on-a-whole-run).
 - **Codex with Sol 6.1 bypasses MCP hooks.** The model calls MCP tools from inside its `exec` tool
   (code mode), so a hook with matcher `mcp__.*` never fires. Use the proxy for Codex.
@@ -105,20 +106,25 @@ reference proxy (`workshop/proxy/index.ts`). Sizes in characters.
 run saving ≈ share of MCP responses in the run cost × how much each response shrinks
 ```
 
-**Measured 2026-10-07** (one attempt per cell). Run 3 against Run 1, the bloated `AGENTS.md` in
-both:
+**Measured 2026-10-27** (medians of 5 attempts for Claude Code, 3 passing attempts for Codex and
+Cursor). Run 3 against Run 1, the bloated `AGENTS.md` in both:
 
 | Agent | MCP output: Run 1 → proxy → hook (K characters) | Proxy: tokens / cost | Hook: tokens / cost |
 |---|---|---|---|
-| Claude (Sonnet 5.5) | 108 → 49 → 10 | **−54% / −36%** | **−60% / −46%** |
-| Cursor (GLM 5.2 High) | 154 → 37 → 11 | −12% / no price | **−70% / no price** |
-| Codex (Sol 6.1) | 142 → 53 → 142 | −5% / +12% | hook never fired |
-| agy (Gemini 3.8 Flash) | — | −33% / −9% ⚠️ | no reference hook |
+| Claude (Sonnet 5.5) | 108 → 48 → 10 | −23% / **−35%** | −22% / **−46%** |
+| Cursor (GLM 5.2 High) | 142 → 35 → 10 | **−60%** / no price | **−60%** / no price |
+| Codex (Sol 6.1) | 109 → 55 → — | −26% / −26% | hook never fires (2026-10-07) |
+| agy (Gemini 3.8 Flash), 2026-10-07 | — | −33% / −9% ⚠️ | no reference hook |
 
-- **Savings grow over the run.** An MCP response enters the context once and is then re-read on
-  every later request. For Cursor, 37K vs 11K characters became −12% vs −70% for the whole run.
-- **The measurement beat the calculation.** Before the runs, the calculation gave −16% (proxy) and
-  −22% (hook). Claude and Cursor measured 2–3× more.
+- **Less MCP output did not mean fewer tokens.** The hook leaves 4–5× less MCP output than the
+  proxy, yet both cut tokens by the same amount. The Claude hook runs made one more model request
+  (median 9 vs 8), and every request re-reads the whole context. The single runs of 2026-10-07
+  showed a large gap for Cursor (−12% vs −70%); it did not repeat.
+- **Less MCP output did mean lower cost for Claude.** A response is written to the cache once, and
+  a cache write costs 40× a cache read. The hook runs wrote a median 18.8K tokens to the cache, the
+  proxy runs 28.3K.
+- **Calculation and measurement.** Before the runs, the calculation gave −16% (proxy) and −22%
+  (hook). Claude Code measured −23% and −22% in tokens; Cursor −60% for both.
 - **Tokens are not cost.** For agy the saved tokens were mostly cheap cache reads, so cost fell much
   less than tokens. ⚠️ agy's Run 1 baseline is inflated (it read the hidden tests).
 
@@ -317,16 +323,16 @@ run (calculated)**. No agent shows tool schemas to a hook.
 
 | # | Method | Proxy | Claude hook | Codex hook | Cursor hook | Built-in | Per response | Per run |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Field Filtering | ✅ | ✅ | ⚠️ | ✅ | ❌ | −55–98% (measured) | part of −60–70% (hook, measured) |
-| 2 | Truncation | ✅ | ✅ | ⚠️ | ✅ | ✅ | −80–99% on big bodies | part of −60–70% (Confluence page) |
-| 3 | Structured Summary | ✅ | ✅ | ⚠️ | ✅ | ❌ | −88–97% (measured) | part of −60–70% (hook, measured) |
+| 1 | Field Filtering | ✅ | ✅ | ⚠️ | ✅ | ❌ | −55–98% (measured) | part of −22…−60% (hook, measured) |
+| 2 | Truncation | ✅ | ✅ | ⚠️ | ✅ | ✅ | −80–99% on big bodies | part of −22…−60% (Confluence page) |
+| 3 | Structured Summary | ✅ | ✅ | ⚠️ | ✅ | ❌ | −88–97% (measured) | part of −22…−60% (hook, measured) |
 | 4 | Pagination | ✅ before | ✅ before | ✅ before | ⚠️ | ❌ | −91% (hook, measured) | 0% in Run 1 (no search call) |
 | 5 | Dedup / Cache | ✅ | ✅ HTTP · ⚠️ | ⚠️ | ⚠️ | ❌ | −98% on a repeat | 0% (no repeats) |
 | 6 | Diff-based | ✅ | ✅ HTTP · ⚠️ | ⚠️ | ⚠️ | ❌ | −94–97% on a repeat | 0% (no polling) |
 | 7 | Aggregation | ✅ | ❌ | ❌ | ❌ | partly | fewer calls | −0–5% (estimate) |
 
 **Methods 1–3 together on the current mocks (reference hook, measured):** MCP output −91–93% →
-run tokens −60% (Claude) and −70% (Cursor), cost −46% (Claude).
+median run tokens −22% (Claude) and −60% (Cursor), cost −46% (Claude).
 
 **Codex hook ⚠️:** with Sol 6.1 the model calls MCP from inside its `exec` tool (code mode), and a
 hook with matcher `mcp__.*` never fires. Use the proxy for Codex.
