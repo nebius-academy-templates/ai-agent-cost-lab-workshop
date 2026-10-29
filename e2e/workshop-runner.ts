@@ -14,7 +14,7 @@
  *   Agent is picked once at `npm run setup -- <agent>` (WORKSHOP_AGENT= still overrides).
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
@@ -114,11 +114,32 @@ function loadDelta(n: string) {
   return JSON.parse(readFileSync(f, "utf8"));
 }
 
-function waitForEnter(): Promise<void> {
+function ask(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question("\n  Press Enter when done…", () => { rl.close(); resolve(); });
+    rl.question(question, (answer) => { rl.close(); resolve(answer); });
   });
+}
+
+async function waitForEnter(): Promise<void> {
+  await ask("\n  Press Enter when done…");
+}
+
+/** Files an earlier run left that the agent can use: its saved fixes, and the last grade, which the
+ * testrail/github MCP servers report. An agent that reads either skips work, and the run is skewed. */
+async function offerToDeleteLeftovers(): Promise<void> {
+  if (!existsSync(SAVE_DIR)) return;
+  const leftovers = readdirSync(SAVE_DIR).filter((f) => f.startsWith("agent-fix-run") || f.endsWith(".gate.json"));
+  if (leftovers.length === 0) return;
+  console.log("  ⚠️  Left in .workshop/ by an earlier run (the agent can read them):");
+  for (const f of leftovers) console.log(`    ${f}`);
+  const answer = await ask("  Delete them before this run? [Y/n] ");
+  if (/^n/i.test(answer.trim())) {
+    console.log("  Kept — the agent may use them, so this run is not a clean measurement.\n");
+    return;
+  }
+  for (const f of leftovers) rmSync(join(SAVE_DIR, f));
+  console.log("  Deleted.\n");
 }
 
 function compareRuns() {
@@ -171,6 +192,7 @@ async function main() {
   console.log(`  Agent: ${agent} | User: ${gitUser}`);
   console.log(`═══════════════════════════════════════════\n`);
 
+  await offerToDeleteLeftovers();
   cleanApp();
   resetScenario();
 
